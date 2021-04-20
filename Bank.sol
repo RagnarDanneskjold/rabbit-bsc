@@ -983,27 +983,27 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
 
         Goblin(production.goblin).work.value(sendBNB)(posId, msg.sender, production.borrowToken, borrow, debt, data);
 
-        uint256 backToken = isBorrowBNB? (address(this).balance.sub(beforeToken)) :
-            SafeToken.myBalance(production.borrowToken).sub(beforeToken);
+        // uint256 backToken = isBorrowBNB? (address(this).balance.sub(beforeToken)) :
+        //     SafeToken.myBalance(production.borrowToken).sub(beforeToken);
 
-        if(backToken > debt) { // 没有借款
-            backToken = backToken.sub(debt);
-            debt = 0;
+        // if(backToken > debt) { // 没有借款
+        //     backToken = backToken.sub(debt);
+        //     debt = 0;
 
-            isBorrowBNB? SafeToken.safeTransferETH(msg.sender, backToken):
-                SafeToken.safeTransfer(production.borrowToken, msg.sender, backToken);
+        //     isBorrowBNB? SafeToken.safeTransferETH(msg.sender, backToken):
+        //         SafeToken.safeTransfer(production.borrowToken, msg.sender, backToken);
 
-        }else if (debt > backToken) { // 有借款 
-            debt = debt.sub(backToken);
-            backToken = 0;
+        // }else if (debt > backToken) { // 有借款 
+        //     debt = debt.sub(backToken);
+        //     backToken = 0;
 
-            require(debt >= production.minDebt && debt <= production.maxDebt, "Debt scale is out of scope");
-            uint256 health = Goblin(production.goblin).health(posId, production.borrowToken);
-            require(health.mul(production.openFactor) >= debt.mul(10000), "bad work factor");
+        //     require(debt >= production.minDebt && debt <= production.maxDebt, "Debt scale is out of scope");
+        //     uint256 health = Goblin(production.goblin).health(posId, production.borrowToken);
+        //     require(health.mul(production.openFactor) >= debt.mul(10000), "bad work factor");
         
-            _addDebt(positions[posId], production, debt);
-        }
-        emit Work(posId, debt, backToken);
+        //     _addDebt(positions[posId], production, debt);
+        // }
+        // emit Work(posId, debt, backToken);
     }
     
     function kill(uint256 posId) external payable onlyEOA nonReentrant {

@@ -587,18 +587,6 @@ interface IUniswapV2Router02 {
     uint deadline
   ) external;
 }
-
-interface ISwapMining {
-
-    /// The user withdraws all the transaction rewards of the pool
-    function takerWithdraw() external;
-
-    /// Get rewards from users in the current pool
-    /// @param pid pid of pair.
-    function getUserReward(uint256 pid) external view returns (uint256, uint256);
-
-}
-
 // File: contracts/interfaces/IMdexFactory.sol
 
 /**
@@ -622,11 +610,17 @@ interface IUniswapV2Factory {
     function setFeeTo(address) external;
     function setFeeToSetter(address) external;
 }
+
+interface IESP{
+    function balances(uint256 arg0) external returns(uint256);
+    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy) external;
+}
+
 // File: contracts/StrategyAddTwoSidesOptimal.sol
 
 pragma solidity ^0.5.16;
 
-contract StrategyAddTwoSidesOptimal is Ownable, ReentrancyGuard, Strategy {
+contract EspAddStrategy is Ownable, ReentrancyGuard, Strategy {
     using SafeToken for address;
     using SafeMath for uint256;
 
@@ -635,13 +629,25 @@ contract StrategyAddTwoSidesOptimal is Ownable, ReentrancyGuard, Strategy {
     address public wbnb = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address public goblin;
 
+    IESP public esp;
+    mapping(address => int128) public argID;
+    
+    address public BUSD = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+    address public USDC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
+    address public USDT = 0x55d398326f99059fF775485246999027B3197955;
+
     /// @dev Create a new add two-side optimal strategy instance for mdx.
     /// @param _router The mdx router smart contract.
     /// @param _goblin The goblin can execute the smart contract.
-    constructor(IUniswapV2Router02 _router, address _goblin) public {
+    constructor(IUniswapV2Router02 _router,IESP _esp, address _goblin) public {
         factory = IUniswapV2Factory(_router.factory());
         router = _router;
         goblin = _goblin;
+        
+        esp = _esp;
+        argID[BUSD] = 1;
+        argID[USDC] = 2;
+        argID[USDT] = 3;
     }
 
     /// @dev Throws if called by any account other than the goblin.
@@ -723,6 +729,7 @@ contract StrategyAddTwoSidesOptimal is Ownable, ReentrancyGuard, Strategy {
             token0 = _token0;
             token1 = _token1;
             minLPAmount = _minLPAmount;
+            require(argID[_token0] != 0 && argID[_token1] != 0,"not esp swap");
             require(borrowToken == token0 || borrowToken == token1, "borrowToken not token0 and token1");
             if (token0Amount > 0 && _token0 != address(0)) {
                 token0.safeTransferFrom(user, address(this), token0Amount);
@@ -764,10 +771,16 @@ contract StrategyAddTwoSidesOptimal is Ownable, ReentrancyGuard, Strategy {
 
             borrowToken.safeApprove(address(router), 0);
             borrowToken.safeApprove(address(router), uint256(-1));
-
+            
+            borrowToken.safeApprove(address(esp),0);
+            borrowToken.safeApprove(address(esp),uint256(-1));
+            
             tokenRelative.safeApprove(address(router), 0);
             tokenRelative.safeApprove(address(router), uint256(-1));
-
+            
+            tokenRelative.safeApprove(address(esp),0);
+            tokenRelative.safeApprove(address(esp),uint256(-1));
+    
             // 3. swap and mint LP tokens. 
             calAndSwap(lpToken, borrowToken, tokenRelative);
 
@@ -800,6 +813,10 @@ contract StrategyAddTwoSidesOptimal is Ownable, ReentrancyGuard, Strategy {
         }
     }
 
+    function getArgID(address addr) view public returns(int128){
+        return(argID[addr] - 1);
+    }
+    
     /// Compute amount and swap between borrowToken and tokenRelative.
     function calAndSwap(IUniswapV2Pair lpToken, address borrowToken, address tokenRelative) internal {
         (uint256 token0Reserve, uint256 token1Reserve,) = lpToken.getReserves();
@@ -807,29 +824,13 @@ contract StrategyAddTwoSidesOptimal is Ownable, ReentrancyGuard, Strategy {
             lpToken.token0() ? (token0Reserve, token1Reserve) : (token1Reserve, token0Reserve);
         (uint256 swapAmt, bool isReversed) = optimalDeposit(borrowToken.myBalance(), tokenRelative.myBalance(),
             debtReserve, relativeReserve);
-
         if (swapAmt > 0){
             address[] memory path = new address[](2);
             (path[0], path[1]) = isReversed ? (tokenRelative, borrowToken) : (borrowToken, tokenRelative);
-            router.swapExactTokensForTokens(swapAmt, 0, path, address(this), now);
+            esp.exchange(getArgID(path[0]), getArgID(path[1]),swapAmt,0);
         }
     }
 
-    /// @param minter The address of MDex SwapMining contract.
-    /// @param pid pid pid of pair in SwapMining config.
-    function getSwapReward(address minter, uint256 pid) public view returns (uint256, uint256) {
-        ISwapMining swapMining = ISwapMining(minter);
-        return swapMining.getUserReward(pid);
-    }
-
-    /// @param minter The address of MDex SwapMining contract.
-    /// @param token Token of reward. Result of pairOfPid(lpTokenAddress)
-    function swapMiningReward(address minter, address token) external onlyOwner{
-        ISwapMining swapMining = ISwapMining(minter);
-        swapMining.takerWithdraw();
-        token.safeTransfer(msg.sender, token.myBalance());
-    }
-    
     /// @dev Recover ERC20 tokens that were accidentally sent to this smart contract.
     /// @param token The token contract. Can be anything. This contract should not hold ERC20 tokens.
     /// @param to The address to send the tokens to.

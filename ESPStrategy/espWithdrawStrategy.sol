@@ -1,3 +1,7 @@
+/**
+ *Submitted for verification at hecoinfo.com on 2021-03-17
+*/
+
 // File: openzeppelin-solidity-2.3.0/contracts/ownership/Ownable.sol
 
 pragma solidity ^0.5.0;
@@ -73,6 +77,47 @@ contract Ownable {
         require(newOwner != address(0), "Ownable: new owner is the zero address");
         emit OwnershipTransferred(_owner, newOwner);
         _owner = newOwner;
+    }
+}
+
+// File: openzeppelin-solidity-2.3.0/contracts/utils/ReentrancyGuard.sol
+
+pragma solidity ^0.5.0;
+
+/**
+ * @dev Contract module that helps prevent reentrant calls to a function.
+ *
+ * Inheriting from `ReentrancyGuard` will make the `nonReentrant` modifier
+ * available, which can be aplied to functions to make sure there are no nested
+ * (reentrant) calls to them.
+ *
+ * Note that because there is a single `nonReentrant` guard, functions marked as
+ * `nonReentrant` may not call one another. This can be worked around by making
+ * those functions `private`, and then adding `external` `nonReentrant` entry
+ * points to them.
+ */
+contract ReentrancyGuard {
+    /// @dev counter to allow mutex lock with only one SSTORE operation
+    uint256 private _guardCounter;
+
+    constructor () internal {
+        // The counter starts at one to prevent changing it from zero to a non-zero
+        // value, which is a more expensive operation.
+        _guardCounter = 1;
+    }
+
+    /**
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * Calling a `nonReentrant` function from another `nonReentrant`
+     * function is not supported. It is possible to prevent this from happening
+     * by making the `nonReentrant` function external, and make it call a
+     * `private` function that does the actual work.
+     */
+    modifier nonReentrant() {
+        _guardCounter += 1;
+        uint256 localCounter = _guardCounter;
+        _;
+        require(localCounter == _guardCounter, "ReentrancyGuard: reentrant call");
     }
 }
 
@@ -186,113 +231,47 @@ library SafeMath {
     }
 }
 
-// File: openzeppelin-solidity-2.3.0/contracts/utils/ReentrancyGuard.sol
-
-pragma solidity ^0.5.0;
-
-/**
- * @dev Contract module that helps prevent reentrant calls to a function.
- *
- * Inheriting from `ReentrancyGuard` will make the `nonReentrant` modifier
- * available, which can be aplied to functions to make sure there are no nested
- * (reentrant) calls to them.
- *
- * Note that because there is a single `nonReentrant` guard, functions marked as
- * `nonReentrant` may not call one another. This can be worked around by making
- * those functions `private`, and then adding `external` `nonReentrant` entry
- * points to them.
- */
-contract ReentrancyGuard {
-    /// @dev counter to allow mutex lock with only one SSTORE operation
-    uint256 private _guardCounter;
-
-    constructor () internal {
-        // The counter starts at one to prevent changing it from zero to a non-zero
-        // value, which is a more expensive operation.
-        _guardCounter = 1;
-    }
-
-    /**
-     * @dev Prevents a contract from calling itself, directly or indirectly.
-     * Calling a `nonReentrant` function from another `nonReentrant`
-     * function is not supported. It is possible to prevent this from happening
-     * by making the `nonReentrant` function external, and make it call a
-     * `private` function that does the actual work.
-     */
-    modifier nonReentrant() {
-        _guardCounter += 1;
-        uint256 localCounter = _guardCounter;
-        _;
-        require(localCounter == _guardCounter, "ReentrancyGuard: reentrant call");
-    }
-}
-
-// File: @uniswap/v2-core/contracts/libraries/Math.sol
-
-pragma solidity =0.5.16;
-
-// a library for performing various math operations
-
-library Math {
-    function min(uint x, uint y) internal pure returns (uint z) {
-        z = x < y ? x : y;
-    }
-
-    // babylonian method (https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Babylonian_method)
-    function sqrt(uint y) internal pure returns (uint z) {
-        if (y > 3) {
-            z = y;
-            uint x = y / 2 + 1;
-            while (x < z) {
-                z = x;
-                x = (y / x + x) / 2;
-            }
-        } else if (y != 0) {
-            z = 1;
-        }
-    }
-}
-
 // File: contracts/SafeToken.sol
 
 pragma solidity ^0.5.16;
 
 interface ERC20Interface {
-  function balanceOf(address user) external view returns (uint256);
+    function balanceOf(address user) external view returns (uint256);
 }
 
 library SafeToken {
-  function myBalance(address token) internal view returns (uint256) {
-    return ERC20Interface(token).balanceOf(address(this));
-  }
+    function myBalance(address token) internal view returns (uint256) {
+        return ERC20Interface(token).balanceOf(address(this));
+    }
 
-  function balanceOf(address token, address user) internal view returns (uint256) {
-    return ERC20Interface(token).balanceOf(user);
-  }
+    function balanceOf(address token, address user) internal view returns (uint256) {
+        return ERC20Interface(token).balanceOf(user);
+    }
 
-  function safeApprove(address token, address to, uint256 value) internal {
-    // bytes4(keccak256(bytes('approve(address,uint256)')));
-    (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0x095ea7b3, to, value));
-    require(success && (data.length == 0 || abi.decode(data, (bool))), "!safeApprove");
-  }
+    function safeApprove(address token, address to, uint256 value) internal {
+        // bytes4(keccak256(bytes('approve(address,uint256)')));
+        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0x095ea7b3, to, value));
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "!safeApprove");
+    }
 
-  function safeTransfer(address token, address to, uint256 value) internal {
-    // bytes4(keccak256(bytes('transfer(address,uint256)')));
-    (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0xa9059cbb, to, value));
-    require(success && (data.length == 0 || abi.decode(data, (bool))), "!safeTransfer");
-  }
+    function safeTransfer(address token, address to, uint256 value) internal {
+        // bytes4(keccak256(bytes('transfer(address,uint256)')));
+        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0xa9059cbb, to, value));
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "!safeTransfer");
+    }
 
-  function safeTransferFrom(address token, address from, address to, uint256 value) internal {
-    // bytes4(keccak256(bytes('transferFrom(address,address,uint256)')));
-    (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0x23b872dd, from, to, value));
-    require(success && (data.length == 0 || abi.decode(data, (bool))), "!safeTransferFrom");
-  }
+    function safeTransferFrom(address token, address from, address to, uint256 value) internal {
+        // bytes4(keccak256(bytes('transferFrom(address,address,uint256)')));
+        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0x23b872dd, from, to, value));
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "!safeTransferFrom");
+    }
 
-     function safeTransferETH(address to, uint256 value) internal {
+    function safeTransferETH(address to, uint256 value) internal {
         (bool success, ) = to.call.value(value)(new bytes(0));
         require(success, "!safeTransferETH");
     }
 }
+
 // File: contracts/Strategy.sol
 
 pragma solidity ^0.5.16;
@@ -587,18 +566,6 @@ interface IUniswapV2Router02 {
     uint deadline
   ) external;
 }
-
-interface ISwapMining {
-
-    /// The user withdraws all the transaction rewards of the pool
-    function takerWithdraw() external;
-
-    /// Get rewards from users in the current pool
-    /// @param pid pid of pair.
-    function getUserReward(uint256 pid) external view returns (uint256, uint256);
-
-}
-
 // File: contracts/interfaces/IMdexFactory.sol
 
 /**
@@ -622,172 +589,164 @@ interface IUniswapV2Factory {
     function setFeeTo(address) external;
     function setFeeToSetter(address) external;
 }
-// File: contracts/StrategyAddTwoSidesOptimal.sol
+
+// File: contracts/interfaces/ISwapMining.sol
+
+/**
+ * Interface of SwapMining contract.
+ */
+pragma solidity ^0.5.16;
+
+interface ISwapMining {
+
+    /// The user withdraws all the transaction rewards of the pool
+    function takerWithdraw() external;
+
+    /// Get rewards from users in the current pool
+    /// @param pid pid of pair.
+    function getUserReward(uint256 pid) external view returns (uint256, uint256);
+
+}
+
+interface IESP{
+    function balances(uint256 arg0) external returns(uint256);
+    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy) external;
+}
+
+
+// File: contracts/MdxStrategyWithdrawMinimizeTrading.sol
 
 pragma solidity ^0.5.16;
 
-contract StrategyAddTwoSidesOptimal is Ownable, ReentrancyGuard, Strategy {
+contract espStrategyWithdraw is Ownable, ReentrancyGuard, Strategy {
     using SafeToken for address;
     using SafeMath for uint256;
 
     IUniswapV2Factory public factory;
     IUniswapV2Router02 public router;
     address public wbnb = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-    address public goblin;
 
-    /// @dev Create a new add two-side optimal strategy instance for mdx.
-    /// @param _router The mdx router smart contract.
-    /// @param _goblin The goblin can execute the smart contract.
-    constructor(IUniswapV2Router02 _router, address _goblin) public {
+    IESP public esp;
+    mapping(address => int128) public argID;
+    
+    address public BUSD = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+    address public USDC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
+    address public USDT = 0x55d398326f99059fF775485246999027B3197955;
+    
+    /// @dev Create a new withdraw minimize trading strategy instance for mdx.
+    /// @param _router The  router smart contract.
+    constructor(IUniswapV2Router02 _router,IESP _esp) public {
         factory = IUniswapV2Factory(_router.factory());
         router = _router;
-        goblin = _goblin;
+        
+        esp = _esp;
+        argID[BUSD] = 1;
+        argID[USDC] = 2;
+        argID[USDT] = 3;
     }
 
-    /// @dev Throws if called by any account other than the goblin.
-    modifier onlyGoblin() {
-        require(isGoblin(), "caller is not the goblin");
-        _;
-    }
-
-    /// @dev Returns true if the caller is the current goblin.
-    function isGoblin() public view returns (bool) {
-        return msg.sender == goblin;
-    }
-
-    /// @dev Compute optimal deposit amount  
-    /// @param amtA amount of token A desired to deposit  
-    /// @param amtB amonut of token B desired to deposit  
-    /// @param resA amount of token A in reserve. 
-    /// @param resB amount of token B in reserve. 
-    function optimalDeposit(
-        uint256 amtA,
-        uint256 amtB,
-        uint256 resA,
-        uint256 resB
-    ) internal pure returns (uint256 swapAmt, bool isReversed) {
-        if (amtA.mul(resB) >= amtB.mul(resA)) {
-            swapAmt = _optimalDepositA(amtA, amtB, resA, resB);
-            isReversed = false;
-        } else {
-            swapAmt = _optimalDepositA(amtB, amtA, resB, resA);
-            isReversed = true;
-        }
-    }
-
-    /// @dev Compute optimal deposit amount helper  
-    /// @param amtA amount of token A desired to deposit
-    /// @param amtB amonut of token B desired to deposit
-    /// @param resA amount of token A in reserve
-    /// @param resB amount of token B in reserve
-    function _optimalDepositA(
-        uint256 amtA,
-        uint256 amtB,
-        uint256 resA,
-        uint256 resB
-    ) internal pure returns (uint256) {
-        require(amtA.mul(resB) >= amtB.mul(resA), "Reversed");
-
-        uint256 a = 997;
-        uint256 b = uint256(1997).mul(resA);
-        uint256 _c = (amtA.mul(resB)).sub(amtB.mul(resA));
-        uint256 c = _c.mul(1000).div(amtB.add(resB)).mul(resA);
-
-        uint256 d = a.mul(c).mul(4);
-        uint256 e = Math.sqrt(b.mul(b).add(d));
-
-        uint256 numerator = e.sub(b);
-        uint256 denominator = a.mul(2);
-
-        return numerator.div(denominator);
-    }
-
-    /// @dev Execute worker strategy. Take LP tokens + debtToken. Return LP tokens.
-    /// @param user User address  
-    /// @param borrowToken The token user borrow from bank. 
-    /// @param borrow The amount user borrow from bank. 
+    /// @dev Execute worker strategy. Take LP tokens. Return debt token + token want back.
+    /// @param user User address to withdraw liquidity.
+    /// @param borrowToken The token user borrow from bank.
+    /// @param debt User's debt amount.
     /// @param data Extra calldata information passed along to this strategy.
-    function execute(address user, address borrowToken, uint256 borrow, uint256 /* debt */, bytes calldata data)
+    function execute(address user, address borrowToken, uint256 /* borrow */, uint256 debt, bytes calldata data)
         external
         payable
-        onlyGoblin
         nonReentrant
     {
-        address token0;
-        address token1;
-        uint256 minLPAmount;
-        {
-            // 1. decode token and amount info, and transfer to contract.
-            (address _token0, address _token1, uint256 token0Amount, uint256 token1Amount, uint256 _minLPAmount) =
-                abi.decode(data, (address, address, uint256, uint256, uint256));
-            token0 = _token0;
-            token1 = _token1;
-            minLPAmount = _minLPAmount;
-            require(borrowToken == token0 || borrowToken == token1, "borrowToken not token0 and token1");
-            if (token0Amount > 0 && _token0 != address(0)) {
-                token0.safeTransferFrom(user, address(this), token0Amount);
-            }
-            if (token1Amount > 0 && token1 != address(0)) {
-                token1.safeTransferFrom(user, address(this), token1Amount);
-            }
-        }
-
+        // 1. Find out lpToken and liquidity.
+        // whichWantBack: 0:token0;1:token1;2:token what surplus.
+        (address token0, address token1, uint whichWantBack) = abi.decode(data, (address, address, uint));
+        require(argID[token0] != 0 && argID[token1] != 0,"not esp swap");
         
-        address BnbRelative = address(0);
-        {   
-            if (borrow > 0 && borrowToken != address(0)) {
-                borrowToken.safeTransferFrom(msg.sender, address(this), borrow);
-            }
+        // is borrowToken is bnb.
+        bool isBorrowBNB = borrowToken == address(0);
+        borrowToken = isBorrowBNB ? wbnb : borrowToken;
+
+        // the relative token when token0 or token1 is ht.
+        address bnbRelative = address(0);
+        {
             if (token0 == address(0)){
                 token0 = wbnb;
-                BnbRelative = token1;
+                bnbRelative = token1;
             }
             if (token1 == address(0)){
                 token1 = wbnb;
-                BnbRelative = token0;
-            }
-
-            // change all bnb to wbnb if need. 
-            uint256 BnbBalance = address(this).balance;
-            if (BnbBalance > 0) {
-                IWETH(wbnb).deposit.value(BnbBalance)();
+                bnbRelative = token0;
             }
         }
-        // tokens are all ERC20 token now.
+        require(borrowToken == token0 || borrowToken == token1, "borrowToken not token0 and token1");
+        require(whichWantBack == uint(0) || whichWantBack == uint(1) || whichWantBack == uint(2),
+            "whichWantBack not in (0,1,2)");
+
+        address tokenUserWant = whichWantBack == uint(0) ? token0 : token1;
+
         IUniswapV2Pair lpToken = IUniswapV2Pair(factory.getPair(token0, token1));
+        token0 = lpToken.token0();
+        token1 = lpToken.token1();
         
-        // 2. Compute the optimal amount of token0 and token1 to be converted.
-        address tokenRelative;
+        token0.safeApprove(address(esp),0);
+        token0.safeApprove(address(esp),uint256(-1));
+        
+        token1.safeApprove(address(esp),0);
+        token1.safeApprove(address(esp),uint256(-1));
         {
-            borrowToken = borrowToken == address(0) ? wbnb : borrowToken;
-            tokenRelative = borrowToken == lpToken.token0() ? token1 : token0;
+            lpToken.approve(address(router), uint256(-1));
+            router.removeLiquidity(token0, token1, lpToken.balanceOf(address(this)), 0, 0, address(this), now);
+        }
+        {
+            address tokenRelative = borrowToken == token0 ? token1 : token0;
 
-            borrowToken.safeApprove(address(router), 0);
-            borrowToken.safeApprove(address(router), uint256(-1));
+            swapIfNeed(borrowToken, tokenRelative, debt);
 
-            tokenRelative.safeApprove(address(router), 0);
-            tokenRelative.safeApprove(address(router), uint256(-1));
-
-            // 3. swap and mint LP tokens. 
-            calAndSwap(lpToken, borrowToken, tokenRelative);
-
-            (,, uint256 moreLPAmount) = router.addLiquidity(token0, token1, token0.myBalance(), token1.myBalance(), 0, 0, address(this), now);
-            require(moreLPAmount >= minLPAmount, "insufficient LP tokens received");
+            if (isBorrowBNB) {
+                IWETH(wbnb).withdraw(debt);
+                SafeToken.safeTransferETH(msg.sender, debt);
+            } else {
+                SafeToken.safeTransfer(borrowToken, msg.sender, debt);
+            }
         }
 
-        // 4. send lpToken and borrowToken back to the sender.
-        lpToken.transfer(msg.sender, lpToken.balanceOf(address(this)));
+        // 2. swap remaining token to what user want.
+        if (whichWantBack != uint(2)) {
+            address tokenAnother = tokenUserWant == token0 ? token1 : token0;
+            uint256 anotherAmount = tokenAnother.myBalance();
+            if(anotherAmount > 0){
+                address[] memory path = new address[](2);
+                path[0] = tokenAnother;
+                path[1] = tokenUserWant;
+                esp.exchange(getArgID(path[0]), getArgID(path[1]),anotherAmount,0);
+            }
+        }
 
-        if (BnbRelative == address(0)) {
-            borrowToken.safeTransfer(msg.sender, borrowToken.myBalance());
-            tokenRelative.safeTransfer(user, tokenRelative.myBalance());
+        // 3. send all tokens back.
+        if (bnbRelative == address(0)) {
+            token0.safeTransfer(user, token0.myBalance());
+            token1.safeTransfer(user, token1.myBalance());
         } else {
-            safeUnWrapperAndAllSend(borrowToken, msg.sender);
-            safeUnWrapperAndAllSend(tokenRelative, user);
+            safeUnWrapperAndAllSend(wbnb, user);
+            safeUnWrapperAndAllSend(bnbRelative, user);
         }
     }
 
-    /// get token balance, if is WBnb un wrapper to Bnb and send to 'to'
+    /// swap if need.
+    function swapIfNeed(address borrowToken, address tokenRelative, uint256 debt) internal {
+        uint256 borrowTokenAmount = borrowToken.myBalance();
+        if (debt > borrowTokenAmount) {
+            // uint256 remainingDebt = debt.sub(borrowTokenAmount);
+            address[] memory path = new address[](2);
+            path[0] = tokenRelative;
+            path[1] = borrowToken;
+            esp.exchange(getArgID(path[0]), getArgID(path[1]),tokenRelative.myBalance(),0);
+        }
+    }
+
+    function getArgID(address addr) view public returns(int128){
+        return(argID[addr] - 1);
+    }
+    
+    /// get token balance, if is wbnb un wrapper to bnb and send to 'to'
     function safeUnWrapperAndAllSend(address token, address to) internal {
         uint256 total = SafeToken.myBalance(token);
         if (total > 0) {
@@ -797,21 +756,6 @@ contract StrategyAddTwoSidesOptimal is Ownable, ReentrancyGuard, Strategy {
             } else {
                 SafeToken.safeTransfer(token, to, total);
             }
-        }
-    }
-
-    /// Compute amount and swap between borrowToken and tokenRelative.
-    function calAndSwap(IUniswapV2Pair lpToken, address borrowToken, address tokenRelative) internal {
-        (uint256 token0Reserve, uint256 token1Reserve,) = lpToken.getReserves();
-        (uint256 debtReserve, uint256 relativeReserve) = borrowToken ==
-            lpToken.token0() ? (token0Reserve, token1Reserve) : (token1Reserve, token0Reserve);
-        (uint256 swapAmt, bool isReversed) = optimalDeposit(borrowToken.myBalance(), tokenRelative.myBalance(),
-            debtReserve, relativeReserve);
-
-        if (swapAmt > 0){
-            address[] memory path = new address[](2);
-            (path[0], path[1]) = isReversed ? (tokenRelative, borrowToken) : (borrowToken, tokenRelative);
-            router.swapExactTokensForTokens(swapAmt, 0, path, address(this), now);
         }
     }
 
@@ -829,7 +773,7 @@ contract StrategyAddTwoSidesOptimal is Ownable, ReentrancyGuard, Strategy {
         swapMining.takerWithdraw();
         token.safeTransfer(msg.sender, token.myBalance());
     }
-    
+
     /// @dev Recover ERC20 tokens that were accidentally sent to this smart contract.
     /// @param token The token contract. Can be anything. This contract should not hold ERC20 tokens.
     /// @param to The address to send the tokens to.
