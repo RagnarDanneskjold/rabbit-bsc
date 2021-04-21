@@ -874,16 +874,16 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         Strategy(strategy).execute.value(msg.value)(user, borrowToken, borrow, debt, ext);
 
         // 3. Add LP tokens back to the farming pool.
-        // _addShare(id,user);
+        _addShare(id,user);
 
-        // if (borrowToken == address(0)) {
-        //     SafeToken.safeTransferETH(msg.sender, address(this).balance);
-        // } else {
-        //     uint256 borrowTokenAmount = borrowToken.myBalance();
-        //     if(borrowTokenAmount > 0){
-        //         SafeToken.safeTransfer(borrowToken, msg.sender, borrowTokenAmount);
-        //     }
-        // }
+        if (borrowToken == address(0)) {
+            SafeToken.safeTransferETH(msg.sender, address(this).balance);
+        } else {
+            uint256 borrowTokenAmount = borrowToken.myBalance();
+            if(borrowTokenAmount > 0){
+                SafeToken.safeTransfer(borrowToken, msg.sender, borrowTokenAmount);
+            }
+        }
     }
     
     /// @dev Liquidate the given position by converting it to debtToken and return back to caller.
