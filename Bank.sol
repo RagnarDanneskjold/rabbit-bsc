@@ -964,13 +964,12 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
 
         calInterest(production.borrowToken);
 
-        uint256 debt = _removeDebt(positions[posId], production).add(borrow);
+        uint256 debt = _removeDebt(posId, production).add(borrow);
         bool isBorrowBNB = production.borrowToken == address(0);
 
         uint256 sendBNB = msg.value;
         uint256 beforeToken = 0;
         if (isBorrowBNB) {
-            // require(sendBNB == 0,"not bnb value");
             sendBNB = sendBNB.add(borrow);
             require(sendBNB <= address(this).balance && debt <= banks[production.borrowToken].totalVal, "insufficient BNB in the bank");
             beforeToken = address(this).balance.sub(sendBNB);
@@ -1001,7 +1000,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
             uint256 health = Goblin(production.goblin).health(posId, production.borrowToken);
             require(health.mul(production.openFactor) >= debt.mul(10000), "bad work factor");
         
-            _addDebt(positions[posId], production, debt);
+            _addDebt(posId, production, debt);
         }
         emit Work(posId, debt, backToken);
     }
@@ -1011,7 +1010,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
         require(pos.debtShare > 0, "no debt");
         Production storage production = productions[pos.productionId];
 
-        uint256 debt = _removeDebt(pos, production);
+        uint256 debt = _removeDebt(posId, production);
 
         uint256 health = Goblin(production.goblin).health(posId, production.borrowToken);
         require(health.mul(production.liquidateFactor) < debt.mul(10000), "can't liquidate");
@@ -1039,20 +1038,23 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
         emit Kill(posId, msg.sender, prize, left);
     }
     
-    function _addDebt(Position storage pos, Production storage production, uint256 debtVal) internal {
+    function _addDebt(uint256 posId, Production storage production, uint256 debtVal) internal {
         if (debtVal == 0) {
             return;
         }
         TokenBank storage bank = banks[production.borrowToken];
+        Position storage pos = positions[posId];
         uint256 debtShare = debtValToShare(production.borrowToken, debtVal);
         pos.debtShare = pos.debtShare.add(debtShare);
         bank.totalVal = bank.totalVal.sub(debtVal);
         bank.totalDebtShare = bank.totalDebtShare.add(debtShare);
         bank.totalDebt = bank.totalDebt.add(debtVal);
+        emit AddDebt(posId, debtShare);
     }
     
-    function _removeDebt(Position storage pos, Production storage production) internal returns (uint256) {
+    function _removeDebt(uint256 posId, Production storage production) internal returns (uint256) {
         TokenBank storage bank = banks[production.borrowToken];
+        Position storage pos = positions[posId];
         uint256 debtShare = pos.debtShare;
         if (debtShare > 0) {
             uint256 debtVal = debtShareToVal(production.borrowToken, debtShare);
@@ -1060,6 +1062,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
             bank.totalVal = bank.totalVal.add(debtVal);
             bank.totalDebtShare = bank.totalDebtShare.sub(debtShare);
             bank.totalDebt = bank.totalDebt.sub(debtVal);
+            emit RemoveDebt(posId, debtShare);
             return debtVal;
         } else {
             return 0;
