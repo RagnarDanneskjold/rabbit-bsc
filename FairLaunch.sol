@@ -840,12 +840,10 @@ contract FairLaunch is IFairLaunch, Ownable {
     pool.accRabbitPerShare = pool.accRabbitPerShare.add(rabbitReward.mul(1e12).div(lpSupply));
     // update accRabbitPerShareTilBonusEnd
     if (block.number <= bonusEndBlock) {
-    //   Rabbit.lock(devaddr, RabbitReward.div(10).mul(bonusLockUpBps).div(10000));
       pool.accRabbitPerShareTilBonusEnd = pool.accRabbitPerShare;
     }
     if(block.number > bonusEndBlock && pool.lastRewardBlock < bonusEndBlock) {
       uint256 RabbitBonusPortion = bonusEndBlock.sub(pool.lastRewardBlock).mul(bonusMultiplier).mul(rabbitPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-    //   Rabbit.lock(devaddr, RabbitBonusPortion.div(10).mul(bonusLockUpBps).div(10000));
       pool.accRabbitPerShareTilBonusEnd = pool.accRabbitPerShareTilBonusEnd.add(RabbitBonusPortion.mul(1e12).div(lpSupply));
     }
     pool.lastRewardBlock = block.number;
@@ -908,9 +906,7 @@ contract FairLaunch is IFairLaunch, Ownable {
     require(user.amount > 0, "nothing to harvest");
     uint256 pending = user.amount.mul(pool.accRabbitPerShare).div(1e12).sub(user.rewardDebt);
     require(pending <= IERC20(rabbit).balanceOf(address(this)), "wtf not enough Rabbit");
-    // uint256 bonus = user.amount.mul(pool.accRabbitPerShareTilBonusEnd).div(1e12).sub(user.bonusDebt);
     safeRabbitTransfer(_to, pending);
-    // Rabbit.lock(_to, bonus.mul(bonusLockUpBps).div(10000));
   }
 
   // Withdraw without caring about rewards. EMERGENCY ONLY.
