@@ -912,7 +912,7 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     {
         require(borrowToken == token0 || borrowToken == token1 || borrowToken == address(0), "borrowToken not token0 and token1");
         // a1. 更新合约奖励 
-        update();
+        _reinvest(user);
         // a2. 记录用户合约奖励
         _harvest(user);
         
@@ -955,7 +955,7 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     {
         bool isBorrowBNB = borrowToken == address(0);
         require(borrowToken == token0 || borrowToken == token1 || isBorrowBNB, "borrowToken not token0 and token1");
-        update();
+        reinvest();
         _harvest(user);
         // 1. Convert the position back to LP tokens and use liquidate strategy.
         _removeShare(id,user);
@@ -1011,14 +1011,18 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         }
     }
     
-    function update() public {
-        // 1.领取MDX奖励 
+    function reinvest() public {
+        _reinvest(msg.sender);
+    }
+    
+    function _reinvest(address _addr) internal {
+        // 1.Receive MDX
         masterChef.withdraw(pid, 0);
         
-        // 2.领取HMDX奖励
+        // 2.Receive HMDX
         boardRoomHMDX.withdraw(boardRoomHMDXPid,0);
         
-        // 3.HMDX to MDX
+        // 3.Swap HMDX to MDX
         if (hmdx.myBalance() > 0) {
             address[] memory path = new address[](2);
             path[0] = address(hmdx);
@@ -1026,22 +1030,25 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
             router.swapExactTokensForTokens(hmdx.myBalance(), 0, path, address(this), now);
         }
         
-        if(mdx.myBalance() == 0 || totalShare == 0) return;
+        uint256 mdxBalance = mdx.myBalance();
+        if(mdxBalance == 0 || totalShare == 0) return;
         
-        // 4.update accMDXPerShare & 质押董事会 
+        // 4. Send the reward bounty to the caller. 
+        uint bounty = mdxBalance.mul(reinvestBountyBps) / 10000;
+        mdx.safeTransfer(_addr, bounty);
+        uint fee = mdxBalance.mul(feeBps) / 10000;
+        mdx.safeTransfer(devAddr,fee);
+        
+        // 5.update accMDXPerShare & boardRoom deposit 
         accMDXPerShare = accMDXPerShare.add(mdx.myBalance().mul(1e12).div(totalShare));
         boardRoomHMDX.deposit(boardRoomHMDXPid,mdx.myBalance());
     }
     
     // Harvest Rabbits earn from the pool.
-    function harvest() public {
-        // 更新每股累计 
-        update();
-        // 更新用户奖励 
+    function harvest() public onlyEOA nonReentrant{
+        _reinvest(msg.sender);
         _harvest(msg.sender);
-        // 更新奖励债务
         rewardDebt[msg.sender] = userShare[msg.sender].mul(accMDXPerShare).div(1e12);
-        // 释放奖励
         uint256 rew = userReward[msg.sender];
         userReward[msg.sender] = 0;
         boardRoomHMDX.withdraw(boardRoomHMDXPid,rew);
