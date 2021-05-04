@@ -809,6 +809,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
     uint256 public currentPos;
     
     mapping(address => uint256[]) public userPosition;
+    mapping(address => bool) public killWhitelist;
     
     struct Pos{
         uint256 posid;
@@ -1006,6 +1007,8 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
     }
     
     function kill(uint256 posId) external payable onlyEOA nonReentrant {
+        require(killWhitelist[msg.sender] == true);
+        
         Position storage pos = positions[posId];
         require(pos.debtShare > 0, "no debt");
         Production storage production = productions[pos.productionId];
@@ -1165,6 +1168,10 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
         uint256 total = totalToken(token).sub(amount); 
         uint256 ibTotal = IBToken(bank.ibTokenAddr).totalSupply();
         return (total == 0 || ibTotal == 0) ? amount: amount.mul(ibTotal).div(total);
+    }
+    
+    function createkillWhitelist(address addr,bool status) external onlyGov {
+        killWhitelist[addr] = status;
     }
     
     function() external payable {}

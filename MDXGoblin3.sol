@@ -820,7 +820,9 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     Strategy public liqStrat;
     
     uint256 public accMDXPerShare;
-
+    
+    mapping(address => bool) public killWhitelist;
+    
     /// @dev Require that the caller must be an EOA account to avoid flash loans.
     modifier onlyEOA() {
         require(msg.sender == tx.origin, 'not eoa');
@@ -1012,6 +1014,8 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     }
     
     function reinvest() public {
+        require(killWhitelist[msg.sender] == true);
+        
         _reinvest(msg.sender);
     }
     
@@ -1204,6 +1208,10 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     
     function transferOperator(address _newOperator) external onlyGov{
         operator = _newOperator;
+    }
+    
+    function createkillWhitelist(address addr,bool status) external onlyGov {
+        killWhitelist[addr] = status;
     }
     
     function() external payable {}

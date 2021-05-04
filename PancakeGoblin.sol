@@ -777,6 +777,8 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     Strategy public addStrat; // use StrategyAllBNBOnly strat (for reinvesting)
     Strategy public liqStrat;
     
+    mapping(address => bool) public killWhitelist;
+
     /// @dev Require that the caller must be an EOA account to avoid flash loans.
     modifier onlyEOA() {
         require(msg.sender == tx.origin, 'not eoa');
@@ -919,6 +921,8 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
 
     /// @dev Re-invest whatever this worker has earned back to staked LP tokens.
     function reinvest() public onlyEOA nonReentrant {
+        require(killWhitelist[msg.sender] == true);
+        
         // 1. Withdraw all the rewards.
         masterChef.withdraw(pid, 0);
         uint reward = cake.balanceOf(address(this));
@@ -1119,6 +1123,10 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     
     function transferOperator(address _newOperator) external onlyGov{
         operator = _newOperator;
+    }
+    
+    function createkillWhitelist(address addr,bool status) external onlyGov {
+        killWhitelist[addr] = status;
     }
     
     function() external payable {}
