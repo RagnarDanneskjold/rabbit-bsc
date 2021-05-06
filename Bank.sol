@@ -811,6 +811,8 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
     mapping(address => uint256[]) public userPosition;
     mapping(address => bool) public killWhitelist;
     
+    address public devAddr;
+
     struct Pos{
         uint256 posid;
         address token0;
@@ -1030,7 +1032,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
         uint256 left = 0;
 
         if (prize > 0) {
-            isBNB? SafeToken.safeTransferETH(msg.sender, prize): SafeToken.safeTransfer(production.borrowToken, msg.sender, prize);
+            isBNB? SafeToken.safeTransferETH(devAddr, prize): SafeToken.safeTransfer(production.borrowToken, devAddr, prize);
         }
         if (rest > debt) {
             left = rest.sub(debt);
@@ -1172,6 +1174,10 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
     
     function createkillWhitelist(address addr,bool status) external onlyGov {
         killWhitelist[addr] = status;
+    }
+    
+    function setDevAddr(address _addr) external onlyGov{
+        devAddr = _addr;
     }
     
     function() external payable {}

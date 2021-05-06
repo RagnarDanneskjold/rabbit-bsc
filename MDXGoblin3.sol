@@ -914,7 +914,7 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     {
         require(borrowToken == token0 || borrowToken == token1 || borrowToken == address(0), "borrowToken not token0 and token1");
         // a1. 更新合约奖励 
-        _reinvest(user);
+        _reinvest();
         // a2. 记录用户合约奖励
         _harvest(user);
         
@@ -1016,10 +1016,10 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     function reinvest() public {
         require(killWhitelist[msg.sender] == true);
         
-        _reinvest(msg.sender);
+        _reinvest();
     }
     
-    function _reinvest(address _addr) internal {
+    function _reinvest() internal {
         // 1.Receive MDX
         masterChef.withdraw(pid, 0);
         
@@ -1038,8 +1038,6 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         if(mdxBalance == 0 || totalShare == 0) return;
         
         // 4. Send the reward bounty to the caller. 
-        uint bounty = mdxBalance.mul(reinvestBountyBps) / 10000;
-        mdx.safeTransfer(_addr, bounty);
         uint fee = mdxBalance.mul(feeBps) / 10000;
         mdx.safeTransfer(devAddr,fee);
         
@@ -1050,7 +1048,7 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     
     // Harvest Rabbits earn from the pool.
     function harvest() public onlyEOA nonReentrant{
-        _reinvest(msg.sender);
+        _reinvest();
         _harvest(msg.sender);
         rewardDebt[msg.sender] = userShare[msg.sender].mul(accMDXPerShare).div(1e12);
         uint256 rew = userReward[msg.sender];

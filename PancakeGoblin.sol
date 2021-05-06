@@ -928,8 +928,6 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         uint reward = cake.balanceOf(address(this));
         if (reward == 0) return;
         // 2. Send the reward bounty to the caller. 
-        uint bounty = reward.mul(reinvestBountyBps) / 10000;
-        cake.safeTransfer(msg.sender, bounty);
         uint fee = reward.mul(feeBps) / 10000;
         cake.safeTransfer(devAddr,fee);
         
@@ -946,13 +944,13 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
           path[2] = address(baseToken);
         }
         
-        router.swapExactTokensForTokens(reward.sub(bounty).sub(fee), 0, path, address(this), now);
+        router.swapExactTokensForTokens(reward.sub(fee), 0, path, address(this), now);
         // 4. Use add BNB strategy to convert all BNB to LP tokens.
         baseToken.safeTransfer(address(addStrat),baseToken.myBalance());
         addStrat.execute(address(0),address(0), 0,0, abi.encode(baseToken, farmingToken, 0));
         // 5. Mint more LP tokens and stake them for more rewards.
         masterChef.deposit(pid, lpToken.balanceOf(address(this)));
-        emit Reinvest(msg.sender, reward, bounty);
+        emit Reinvest(msg.sender, reward, 0);
       }
   
     /// @dev Return the amount of debt token to receive if we are to liquidate the given position.

@@ -115,11 +115,11 @@ contract TripleSlopeModel {
         if (utilization < 5000) {
             // Less than 50% utilization - 10% APY
             return (uint256(10e16) / 365 days,total,utilization);
-        } else if (utilization < 9500) {
-            // Between 50% and 95% - 10%-25% APY
+        } else if (utilization < 9000) {
+            // Between 50% and 90% - 10%-25% APY
             return ((10e16 + utilization.sub(5000).mul(15e16).div(10000)) / 365 days,total,utilization);
         } else if (utilization < 10000) {
-            // Between 95% and 100% - 25%-100% APY
+            // Between 90% and 100% - 25%-100% APY
             return ((25e16 + utilization.sub(7500).mul(75e16).div(10000)) / 365 days,total,utilization);
         } else {
             // Not possible, but just in case - 100% APY
