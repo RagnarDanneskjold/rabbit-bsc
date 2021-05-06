@@ -120,7 +120,7 @@ contract TripleSlopeModel {
             return ((10e16 + utilization.sub(5000).mul(15e16).div(10000)) / 365 days,total,utilization);
         } else if (utilization < 10000) {
             // Between 90% and 100% - 25%-100% APY
-            return ((25e16 + utilization.sub(7500).mul(75e16).div(10000)) / 365 days,total,utilization);
+            return ((25e16 + utilization.sub(9500).mul(75e16).div(10000)) / 365 days,total,utilization);
         } else {
             // Not possible, but just in case - 100% APY
             return (uint256(100e16) / 365 days,total,utilization);
