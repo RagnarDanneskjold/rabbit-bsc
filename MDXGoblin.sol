@@ -2,7 +2,6 @@
 pragma solidity 0.5.16;
 
 
-
 // Part: ERC20Interface
 
 interface ERC20Interface {
@@ -23,7 +22,7 @@ interface Goblin {
     function liquidate(uint256 id, address user, address borrowToken) external;
      
     /// @dev Re-invest whatever the goblin is working on.
-    function reinvest() external;
+    // function reinvest() external;
 }
 
 // File: contracts/interfaces/IMdexRouter.sol
@@ -533,6 +532,34 @@ contract IMasterChef {
 
   // Withdraw LP tokens from MasterChef.
   function withdraw(uint _pid, uint _amount) external {}
+  
+  function pending(uint256 _pid, address _user) external view returns (uint256, uint256) {}
+}
+
+contract BoardRoomHMDX {
+    struct UserInfo {
+        uint256 amount;
+        uint256 rewardDebt;
+    }
+
+    struct PoolInfo {
+        IERC20 lpToken;
+        uint256 allocPoint;
+        uint256 lastRewardBlock;
+        uint256 accHMDXPerShare;
+        uint256 hmdxAmount;
+    }
+
+    address public hmdx;
+    
+    // Info of each pool.
+    PoolInfo[] public poolInfo;
+    // Info of each user that stakes LP tokens.
+    mapping(uint256 => mapping(address => UserInfo)) public userInfo;
+    
+    function deposit(uint256 _pid, uint256 _amount) public {}
+    function withdraw(uint256 _pid, uint256 _amount) public {}
+    function pending(uint256 _pid, address _user) external view returns (uint256) {}
 }
 
 library SafeToken {
@@ -567,7 +594,6 @@ library SafeToken {
         require(success, "!safeTransferETH");
     }
 }
-
 
 // Part: Initializable
 
@@ -751,14 +777,21 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     event Liquidate(uint256 indexed id, address lpTokenAddress, uint256 lpAmount, address debtToken, uint256 liqAmount);
       
     IMasterChef public masterChef;
+    BoardRoomHMDX public boardRoomHMDX;
+    
     IUniswapV2Factory public factory;
     IUniswapV2Router02 public router;
     IUniswapV2Pair public lpToken;
-    
+
     address public wbnb;
     address public usdt;
+    
     uint256 public pid;
+    uint256 public boardRoomHMDXPid;
+    
     address public mdx;
+    address public hmdx;
+    
     address public fairLaunchAddr;
     uint256 public fairLaunchPoolId;
     
@@ -772,6 +805,10 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     
     /// @notice Mutable state variables
     mapping(uint => uint) public shares;
+    mapping(address => uint) public userShare;
+    mapping(address => uint256) public rewardDebt;
+    mapping(address => uint256) public userReward;
+    
     mapping(address => bool) public okStrats;
     uint public totalShare;
     uint public reinvestBountyBps;
@@ -779,8 +816,11 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     uint public feeBps;
     address public devAddr;
     
-    Strategy public addStrat; // use StrategyAllBNBOnly strat (for reinvesting)
     Strategy public liqStrat;
+    
+    uint256 public accMDXPerShare;
+    
+    mapping(address => bool) public killWhitelist;
     
     /// @dev Require that the caller must be an EOA account to avoid flash loans.
     modifier onlyEOA() {
@@ -800,18 +840,25 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         IMasterChef _masterChef,
         IUniswapV2Router02 _router,
         uint _pid,
-        Strategy _addStrat,
         Strategy _liqStrat,
         uint _reinvestBountyBps,
         uint _feeBps,
         address _devAddr,
         address _fairLaunchAddr,
-        address _baseToken
+        address _baseToken,
+        BoardRoomHMDX _boardRoom,
+        uint _boardPID
         
         ) external initializer {
         __Governable__init();
         __ReentrancyGuardUpgradeSafe__init();
         
+        // BoardRoomHMDX
+        boardRoomHMDX = _boardRoom;
+        boardRoomHMDXPid= _boardPID;
+        hmdx = boardRoomHMDX.hmdx();
+        
+        // MDX Pool
         usdt = _busdt;
         operator = _operator;
         wbnb = _router.WBNB();
@@ -834,10 +881,8 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         
         mdx = address(masterChef.mdx());
 
-        addStrat = _addStrat;
         liqStrat = _liqStrat;
         
-        okStrats[address(addStrat)] = true;
         okStrats[address(liqStrat)] = true;
         
         reinvestBountyBps = _reinvestBountyBps;
@@ -846,6 +891,8 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         token0.safeApprove(address(router), uint(-1)); 
         token1.safeApprove(address(router),uint(-1));
         mdx.safeApprove(address(router), uint(-1));
+        mdx.safeApprove(address(boardRoomHMDX),uint(-1));
+        hmdx.safeApprove(address(router), uint(-1));
     }
 
     /// @dev Work on the given position. Must be called by the operator.
@@ -862,7 +909,11 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         nonReentrant
     {
         require(borrowToken == token0 || borrowToken == token1 || borrowToken == address(0), "borrowToken not token0 and token1");
-
+        // a1. 更新合约奖励 
+        _reinvest();
+        // a2. 记录用户合约奖励
+        _harvest(user);
+        
         // 1. Convert this position back to LP tokens.
         _removeShare(id,user);
         // 2. Perform the worker strategy; sending LP tokens + borrowToken; expecting LP tokens.
@@ -881,7 +932,7 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
 
         // 3. Add LP tokens back to the farming pool.
         _addShare(id,user);
-
+        
         if (borrowToken == address(0)) {
             SafeToken.safeTransferETH(msg.sender, address(this).balance);
         } else {
@@ -902,7 +953,8 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     {
         bool isBorrowBNB = borrowToken == address(0);
         require(borrowToken == token0 || borrowToken == token1 || isBorrowBNB, "borrowToken not token0 and token1");
-
+        reinvest();
+        _harvest(user);
         // 1. Convert the position back to LP tokens and use liquidate strategy.
         _removeShare(id,user);
         uint256 lpTokenAmount = lpToken.balanceOf(address(this));
@@ -923,40 +975,6 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     }
 
 
-    /// @dev Re-invest whatever this worker has earned back to staked LP tokens.
-    function reinvest() public onlyEOA nonReentrant {
-        // 1. Withdraw all the rewards.
-        masterChef.withdraw(pid, 0);
-        uint reward = mdx.balanceOf(address(this));
-        if (reward == 0) return;
-        // 2. Send the reward bounty to the caller. 
-        uint bounty = reward.mul(reinvestBountyBps) / 10000;
-        mdx.safeTransfer(msg.sender, bounty);
-        uint fee = reward.mul(feeBps) / 10000;
-        mdx.safeTransfer(devAddr,fee);
-        
-        // 3. Convert all the remaining rewards to BNB.
-        address[] memory path;
-        if (baseToken == usdt) {
-          path = new address[](2);
-          path[0] = address(mdx);
-          path[1] = address(usdt);
-        } else {
-          path = new address[](3);
-          path[0] = address(mdx);
-          path[1] = address(usdt);
-          path[2] = address(baseToken);
-        }
-        
-        router.swapExactTokensForTokens(reward.sub(bounty).sub(fee), 0, path, address(this), now);
-        // 4. Use add BNB strategy to convert all BNB to LP tokens.
-        baseToken.safeTransfer(address(addStrat),baseToken.myBalance());
-        addStrat.execute(address(0),address(0), 0,0, abi.encode(baseToken, farmingToken, 0));
-        // 5. Mint more LP tokens and stake them for more rewards.
-        masterChef.deposit(pid, lpToken.balanceOf(address(this)));
-        emit Reinvest(msg.sender, reward, bounty);
-      }
-  
     /// @dev Return the amount of debt token to receive if we are to liquidate the given position.
     /// @param id The position ID to perform health check.
     /// @param borrowToken The token this position had debt.
@@ -991,6 +1009,57 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         }
     }
     
+    function reinvest() public {
+        require(killWhitelist[msg.sender] == true);
+        
+        _reinvest();
+    }
+    
+    function _reinvest() internal {
+        // 1.Receive MDX
+        masterChef.withdraw(pid, 0);
+        
+        // 2.Receive HMDX
+        boardRoomHMDX.withdraw(boardRoomHMDXPid,0);
+        
+        // 3.Swap HMDX to MDX
+        if (hmdx.myBalance() > 0) {
+            address[] memory path = new address[](2);
+            path[0] = address(hmdx);
+            path[1] = address(mdx);
+            router.swapExactTokensForTokens(hmdx.myBalance(), 0, path, address(this), now);
+        }
+        
+        uint256 mdxBalance = mdx.myBalance();
+        if(mdxBalance == 0 || totalShare == 0) return;
+        
+        // 4. Send the reward bounty to the caller. 
+        uint fee = mdxBalance.mul(feeBps) / 10000;
+        mdx.safeTransfer(devAddr,fee);
+        
+        // 5.update accMDXPerShare & boardRoom deposit 
+        accMDXPerShare = accMDXPerShare.add(mdx.myBalance().mul(1e12).div(totalShare));
+        boardRoomHMDX.deposit(boardRoomHMDXPid,mdx.myBalance());
+    }
+    
+    // Harvest Rabbits earn from the pool.
+    function harvest() public onlyEOA nonReentrant{
+        _reinvest();
+        _harvest(msg.sender);
+        rewardDebt[msg.sender] = userShare[msg.sender].mul(accMDXPerShare).div(1e12);
+        uint256 rew = userReward[msg.sender];
+        userReward[msg.sender] = 0;
+        boardRoomHMDX.withdraw(boardRoomHMDXPid,rew);
+        mdx.safeTransfer(msg.sender,rew);
+    }
+    
+    function _harvest(address _user) internal {
+        if(userShare[_user] > 0) {
+            uint256 pending = userShare[_user].mul(accMDXPerShare).div(1e12).sub(rewardDebt[_user]);
+            userReward[_user] = userReward[_user].add(pending);
+        }
+    }
+    
     /// @dev Return the entitied LP token balance for the given shares.
     /// @param share The number of shares to be converted to LP balance.
     function shareToBalance(uint share) public view returns (uint) {
@@ -1015,7 +1084,11 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
           uint share = balanceToShare(balance);
           masterChef.deposit(pid, balance);
           _fairLaunchDeposit(user,balance);
+          
           shares[id] = shares[id].add(share);
+          userShare[user] = userShare[user].add(share);
+          rewardDebt[user] = userShare[user].mul(accMDXPerShare).div(1e12);
+          
           totalShare = totalShare.add(share);
           emit AddShare(id, share);
         }
@@ -1026,8 +1099,12 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         uint share = shares[id];
         if (share > 0) {
           uint balance = shareToBalance(share);
+          
           totalShare = totalShare.sub(share);
           shares[id] = 0;
+          userShare[user] = userShare[user].sub(share);
+          rewardDebt[user] = userShare[user].mul(accMDXPerShare).div(1e12);
+
           masterChef.withdraw(pid, balance);
           _fairLaunchWithdraw(user,balance);
           emit RemoveShare(id, share);
@@ -1100,10 +1177,8 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     }
     
     /// @dev Update critical strategy smart contracts. EMERGENCY ONLY. Bad strategies can steal funds.
-    /// @param _addStrat The new add strategy contract.
     /// @param _liqStrat The new liquidate strategy contract.
-    function setCriticalStrategies(Strategy _addStrat, Strategy _liqStrat) external onlyGov {
-        addStrat = _addStrat;
+    function setCriticalStrategies(Strategy _liqStrat) external onlyGov {
         liqStrat = _liqStrat;
     }
     
@@ -1125,6 +1200,10 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     
     function transferOperator(address _newOperator) external onlyGov{
         operator = _newOperator;
+    }
+    
+    function createkillWhitelist(address addr,bool status) external onlyGov {
+        killWhitelist[addr] = status;
     }
     
     function() external payable {}
