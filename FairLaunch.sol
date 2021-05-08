@@ -681,9 +681,7 @@ contract FairLaunch is IFairLaunch, Ownable {
   uint256 public bonusMultiplier;
   // Block number when bonus rabbit period ends.
   uint256 public bonusEndBlock;
-  // Bonus lock-up in BPS
-//   uint256 public bonusLockUpBps;
-  
+
     // Info of each pool.
   PoolInfo[] public poolInfo;
   // Info of each user that stakes Staking tokens.
@@ -835,7 +833,7 @@ contract FairLaunch is IFairLaunch, Ownable {
     }
     uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
     uint256 rabbitReward = multiplier.mul(rabbitPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-    IRabbit(rabbit).mint(devaddr, rabbitReward.div(19));
+    IRabbit(rabbit).mint(devaddr, rabbitReward.mul(19).div(100));
     IRabbit(rabbit).mint(address(this), rabbitReward);
     pool.accRabbitPerShare = pool.accRabbitPerShare.add(rabbitReward.mul(1e12).div(lpSupply));
     // update accRabbitPerShareTilBonusEnd

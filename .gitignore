@@ -23,5 +23,5 @@ runtime/
 artifacts/
 
 MDXGoblin2.sol
-MDXGoblin3.sol
+# MDXGoblin3.sol
 rCANDY.sol

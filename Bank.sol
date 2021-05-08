@@ -809,9 +809,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
     uint256 public currentPos;
     
     mapping(address => uint256[]) public userPosition;
-    mapping(address => bool) public killWhitelist;
-    
-    address public devAddr;
+
 
     struct Pos{
         uint256 posid;
@@ -823,6 +821,8 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
         address goblin;
     }
     
+    mapping(address => bool) public killWhitelist;
+    address public devAddr;
     
     function initialize(BankConfig _config) external initializer {
         __Governable__init();
@@ -841,12 +841,8 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
     function getUserPosition(address user) view external returns(Pos[] memory){
         uint256[] memory userPos = userPosition[user];
         Pos[] memory p = new Pos[](userPos.length);
-        uint256 index;
         for (uint256 i = 0;i<userPos.length;i++){
-            if(positions[userPos[i]].debtShare > 0){
-                p[index] = getPos(userPos[i]);
-                index = index.add(1);
-            }
+                p[i] = getPos(userPos[i]);
         }
         return p;
     }
@@ -1135,11 +1131,15 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
         require(bank.isOpen, 'token not exists');
         if (now > bank.lastInterestTime) {
             uint256 timePast = now.sub(bank.lastInterestTime);
+            
             uint256 totalDebt = bank.totalDebt;
             uint256 totalBalance = totalToken(token);
+            
             uint256 ratePerSec = config.getInterestRate(totalDebt, totalBalance);
             uint256 interest = ratePerSec.mul(timePast).mul(totalDebt).div(1e18);
+            
             uint256 toReserve = interest.mul(config.getReserveBps()).div(10000);
+            
             bank.totalReserve = bank.totalReserve.add(toReserve);
             bank.totalDebt = bank.totalDebt.add(interest);
             bank.lastInterestTime = now;
