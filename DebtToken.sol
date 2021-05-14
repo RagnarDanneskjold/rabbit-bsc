@@ -1,8 +1,5 @@
-/**
- *Submitted for verification at BscScan.com on 2021-03-23
-*/
-
-pragma solidity 0.6.6;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.0;
 
 /**
  * @title Initializable

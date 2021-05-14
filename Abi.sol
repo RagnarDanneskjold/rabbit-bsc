@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.0;
 
 contract ABI {
     function add_encode(address strategy,address _token0,address _token1,uint256 _token0Amount,uint256 _token1Amount,uint256 _minLPAmount) pure public returns(bytes memory) {

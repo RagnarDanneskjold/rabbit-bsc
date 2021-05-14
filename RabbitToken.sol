@@ -739,7 +739,7 @@ pragma solidity ^0.6.0;
 
 
 contract Rabbit is ERC20Burnable, Operator {
-    constructor() public ERC20('Rabbit', 'Rabbit') {
+    constructor() public ERC20('Rabbit Coin', 'RABBIT') {
         // Mints 1 Basis Share to contract creator for initial Uniswap oracle deployment.
         // Will be burned after oracle deployment
         _mint(msg.sender, 1 * 10**18);

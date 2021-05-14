@@ -1,6 +1,5 @@
-// File: openzeppelin-solidity-2.3.0/contracts/ownership/Ownable.sol
-
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.0;
 
 /**
  * @dev Contract module which provides a basic access control mechanism, where
@@ -78,7 +77,6 @@ contract Ownable {
 
 // File: openzeppelin-solidity-2.3.0/contracts/math/SafeMath.sol
 
-pragma solidity ^0.5.0;
 
 /**
  * @dev Wrappers over Solidity's arithmetic operations with added overflow
@@ -188,7 +186,6 @@ library SafeMath {
 
 // File: openzeppelin-solidity-2.3.0/contracts/utils/ReentrancyGuard.sol
 
-pragma solidity ^0.5.0;
 
 /**
  * @dev Contract module that helps prevent reentrant calls to a function.
@@ -229,7 +226,6 @@ contract ReentrancyGuard {
 
 // File: @uniswap/v2-core/contracts/libraries/Math.sol
 
-pragma solidity =0.5.16;
 
 // a library for performing various math operations
 
@@ -255,7 +251,6 @@ library Math {
 
 // File: contracts/SafeToken.sol
 
-pragma solidity ^0.5.16;
 
 interface ERC20Interface {
   function balanceOf(address user) external view returns (uint256);
@@ -288,31 +283,21 @@ library SafeToken {
     require(success && (data.length == 0 || abi.decode(data, (bool))), "!safeTransferFrom");
   }
 
-     function safeTransferETH(address to, uint256 value) internal {
-        (bool success, ) = to.call.value(value)(new bytes(0));
+     function safeTransferETH(address to, uint256 val) internal {
+        (bool success, ) = to.call{value:val}(new bytes(0));
         require(success, "!safeTransferETH");
     }
 }
 // File: contracts/Strategy.sol
 
-pragma solidity ^0.5.16;
 
 interface Strategy {
-
-    /// @dev Execute worker strategy. Take LP tokens + debt token. Return LP tokens or debt token.
-    /// @param user The original user that is interacting with the operator.
-    /// @param borrowToken The token user want borrow.
-    /// @param borrow The amount user borrow from bank.
-    /// @param debt The user's total debt, for better decision making context.
-    /// @param data Extra calldata information passed along to this strategy.
-    /// @return token and amount need transfer back.
     function execute(address user, address borrowToken, uint256 borrow, uint256 debt, bytes calldata data) external payable;
 
 }
 
 // File: contracts/interfaces/IWETH.sol
 
-pragma solidity ^0.5.16;
 
 interface IWETH {
     function balanceOf(address user) external returns (uint);
@@ -328,7 +313,6 @@ interface IWETH {
 
 // File: contracts/interfaces/IMdexPair.sol
 
-pragma solidity ^0.5.16;
 
 interface IUniswapV2Pair {
     event Approval(address indexed owner, address indexed spender, uint value);
@@ -382,7 +366,6 @@ interface IUniswapV2Pair {
 }
 // File: contracts/interfaces/IMdexRouter.sol
 
-pragma solidity ^0.5.16;
 
 interface IUniswapV2Router02 {
   function factory() external pure returns (address);
@@ -589,12 +572,6 @@ interface IUniswapV2Router02 {
 }
 // File: contracts/interfaces/IMdexFactory.sol
 
-/**
- *Submitted for verification at hecoinfo.com on 2021-02-25
-*/
-
-pragma solidity ^0.5.16;
-
 interface IUniswapV2Factory {
     event PairCreated(address indexed token0, address indexed token1, address pair, uint);
 
@@ -618,23 +595,21 @@ interface IESP{
 
 // File: contracts/StrategyAddTwoSidesOptimal.sol
 
-pragma solidity ^0.5.16;
-
 contract EspAddStrategy is Ownable, ReentrancyGuard, Strategy {
     using SafeToken for address;
     using SafeMath for uint256;
 
-    IUniswapV2Factory public factory;
-    IUniswapV2Router02 public router;
-    address public wbnb = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-    address public goblin;
+    IUniswapV2Factory public immutable factory;
+    IUniswapV2Router02 public immutable router;
+    address public constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address public immutable goblin;
 
-    IESP public esp;
+    IESP public immutable esp;
     mapping(address => int128) public argID;
     
-    address public BUSD = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
-    address public USDC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
-    address public USDT = 0x55d398326f99059fF775485246999027B3197955;
+    address public constant BUSD = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+    address public constant USDC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
+    address public constant USDT = 0x55d398326f99059fF775485246999027B3197955;
 
     /// @dev Create a new add two-side optimal strategy instance for mdx.
     /// @param _router The mdx router smart contract.
@@ -714,6 +689,7 @@ contract EspAddStrategy is Ownable, ReentrancyGuard, Strategy {
     /// @param borrow The amount user borrow from bank. 
     /// @param data Extra calldata information passed along to this strategy.
     function execute(address user, address borrowToken, uint256 borrow, uint256 /* debt */, bytes calldata data)
+        override
         external
         payable
         onlyGoblin
@@ -746,18 +722,18 @@ contract EspAddStrategy is Ownable, ReentrancyGuard, Strategy {
                 borrowToken.safeTransferFrom(msg.sender, address(this), borrow);
             }
             if (token0 == address(0)){
-                token0 = wbnb;
+                token0 = WBNB;
                 BnbRelative = token1;
             }
             if (token1 == address(0)){
-                token1 = wbnb;
+                token1 = WBNB;
                 BnbRelative = token0;
             }
 
             // change all bnb to wbnb if need. 
             uint256 BnbBalance = address(this).balance;
             if (BnbBalance > 0) {
-                IWETH(wbnb).deposit.value(BnbBalance)();
+                IWETH(WBNB).deposit{value:BnbBalance}();
             }
         }
         // tokens are all ERC20 token now.
@@ -766,7 +742,7 @@ contract EspAddStrategy is Ownable, ReentrancyGuard, Strategy {
         // 2. Compute the optimal amount of token0 and token1 to be converted.
         address tokenRelative;
         {
-            borrowToken = borrowToken == address(0) ? wbnb : borrowToken;
+            borrowToken = borrowToken == address(0) ? WBNB : borrowToken;
             tokenRelative = borrowToken == lpToken.token0() ? token1 : token0;
 
             borrowToken.safeApprove(address(router), 0);
@@ -804,8 +780,8 @@ contract EspAddStrategy is Ownable, ReentrancyGuard, Strategy {
     function safeUnWrapperAndAllSend(address token, address to) internal {
         uint256 total = SafeToken.myBalance(token);
         if (total > 0) {
-            if (token == wbnb) {
-                IWETH(wbnb).withdraw(total);
+            if (token == WBNB) {
+                IWETH(WBNB).withdraw(total);
                 SafeToken.safeTransferETH(to, total);
             } else {
                 SafeToken.safeTransfer(token, to, total);
@@ -839,5 +815,5 @@ contract EspAddStrategy is Ownable, ReentrancyGuard, Strategy {
         token.safeTransfer(to, value);
     }
 
-    function() external payable {}
+    receive() external payable {}
 }

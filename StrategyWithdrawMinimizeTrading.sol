@@ -1,10 +1,5 @@
-/**
- *Submitted for verification at hecoinfo.com on 2021-03-17
-*/
-
-// File: openzeppelin-solidity-2.3.0/contracts/ownership/Ownable.sol
-
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.0;
 
 /**
  * @dev Contract module which provides a basic access control mechanism, where
@@ -82,7 +77,6 @@ contract Ownable {
 
 // File: openzeppelin-solidity-2.3.0/contracts/utils/ReentrancyGuard.sol
 
-pragma solidity ^0.5.0;
 
 /**
  * @dev Contract module that helps prevent reentrant calls to a function.
@@ -123,7 +117,6 @@ contract ReentrancyGuard {
 
 // File: openzeppelin-solidity-2.3.0/contracts/math/SafeMath.sol
 
-pragma solidity ^0.5.0;
 
 /**
  * @dev Wrappers over Solidity's arithmetic operations with added overflow
@@ -233,7 +226,6 @@ library SafeMath {
 
 // File: contracts/SafeToken.sol
 
-pragma solidity ^0.5.16;
 
 interface ERC20Interface {
     function balanceOf(address user) external view returns (uint256);
@@ -266,32 +258,22 @@ library SafeToken {
         require(success && (data.length == 0 || abi.decode(data, (bool))), "!safeTransferFrom");
     }
 
-    function safeTransferETH(address to, uint256 value) internal {
-        (bool success, ) = to.call.value(value)(new bytes(0));
+    function safeTransferETH(address to, uint256 val) internal {
+        (bool success, ) = to.call{value:val}(new bytes(0));
         require(success, "!safeTransferETH");
     }
 }
 
 // File: contracts/Strategy.sol
 
-pragma solidity ^0.5.16;
 
 interface Strategy {
-
-    /// @dev Execute worker strategy. Take LP tokens + debt token. Return LP tokens or debt token.
-    /// @param user The original user that is interacting with the operator.
-    /// @param borrowToken The token user want borrow.
-    /// @param borrow The amount user borrow from bank.
-    /// @param debt The user's total debt, for better decision making context.
-    /// @param data Extra calldata information passed along to this strategy.
-    /// @return token and amount need transfer back.
     function execute(address user, address borrowToken, uint256 borrow, uint256 debt, bytes calldata data) external payable;
 
 }
 
 // File: contracts/interfaces/IWETH.sol
 
-pragma solidity ^0.5.16;
 
 interface IWETH {
     function balanceOf(address user) external returns (uint);
@@ -306,8 +288,6 @@ interface IWETH {
 }
 
 // File: contracts/interfaces/IMdexPair.sol
-
-pragma solidity ^0.5.16;
 
 interface IUniswapV2Pair {
     event Approval(address indexed owner, address indexed spender, uint value);
@@ -360,8 +340,6 @@ interface IUniswapV2Pair {
     function initialize(address, address) external;
 }
 // File: contracts/interfaces/IMdexRouter.sol
-
-pragma solidity ^0.5.16;
 
 interface IUniswapV2Router02 {
   function factory() external pure returns (address);
@@ -568,12 +546,6 @@ interface IUniswapV2Router02 {
 }
 // File: contracts/interfaces/IMdexFactory.sol
 
-/**
- *Submitted for verification at hecoinfo.com on 2021-02-25
-*/
-
-pragma solidity ^0.5.16;
-
 interface IUniswapV2Factory {
     event PairCreated(address indexed token0, address indexed token1, address pair, uint);
 
@@ -595,7 +567,6 @@ interface IUniswapV2Factory {
 /**
  * Interface of SwapMining contract.
  */
-pragma solidity ^0.5.16;
 
 interface ISwapMining {
 
@@ -610,15 +581,13 @@ interface ISwapMining {
 
 // File: contracts/MdxStrategyWithdrawMinimizeTrading.sol
 
-pragma solidity ^0.5.16;
-
 contract StrategyWithdrawMinimizeTrading is Ownable, ReentrancyGuard, Strategy {
     using SafeToken for address;
     using SafeMath for uint256;
 
-    IUniswapV2Factory public factory;
-    IUniswapV2Router02 public router;
-    address public wbnb = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    IUniswapV2Factory public immutable factory;
+    IUniswapV2Router02 public immutable router;
+    address public constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
 
     /// @dev Create a new withdraw minimize trading strategy instance for mdx.
     /// @param _router The  router smart contract.
@@ -633,6 +602,7 @@ contract StrategyWithdrawMinimizeTrading is Ownable, ReentrancyGuard, Strategy {
     /// @param debt User's debt amount.
     /// @param data Extra calldata information passed along to this strategy.
     function execute(address user, address borrowToken, uint256 /* borrow */, uint256 debt, bytes calldata data)
+        override
         external
         payable
         nonReentrant
@@ -643,17 +613,17 @@ contract StrategyWithdrawMinimizeTrading is Ownable, ReentrancyGuard, Strategy {
 
         // is borrowToken is bnb.
         bool isBorrowBNB = borrowToken == address(0);
-        borrowToken = isBorrowBNB ? wbnb : borrowToken;
+        borrowToken = isBorrowBNB ? WBNB : borrowToken;
 
         // the relative token when token0 or token1 is ht.
         address bnbRelative = address(0);
         {
             if (token0 == address(0)){
-                token0 = wbnb;
+                token0 = WBNB;
                 bnbRelative = token1;
             }
             if (token1 == address(0)){
-                token1 = wbnb;
+                token1 = WBNB;
                 bnbRelative = token0;
             }
         }
@@ -677,7 +647,7 @@ contract StrategyWithdrawMinimizeTrading is Ownable, ReentrancyGuard, Strategy {
             swapIfNeed(borrowToken, tokenRelative, debt);
 
             if (isBorrowBNB) {
-                IWETH(wbnb).withdraw(debt);
+                IWETH(WBNB).withdraw(debt);
                 SafeToken.safeTransferETH(msg.sender, debt);
             } else {
                 SafeToken.safeTransfer(borrowToken, msg.sender, debt);
@@ -704,7 +674,7 @@ contract StrategyWithdrawMinimizeTrading is Ownable, ReentrancyGuard, Strategy {
             token0.safeTransfer(user, token0.myBalance());
             token1.safeTransfer(user, token1.myBalance());
         } else {
-            safeUnWrapperAndAllSend(wbnb, user);
+            safeUnWrapperAndAllSend(WBNB, user);
             safeUnWrapperAndAllSend(bnbRelative, user);
         }
     }
@@ -728,8 +698,8 @@ contract StrategyWithdrawMinimizeTrading is Ownable, ReentrancyGuard, Strategy {
     function safeUnWrapperAndAllSend(address token, address to) internal {
         uint256 total = SafeToken.myBalance(token);
         if (total > 0) {
-            if (token == wbnb) {
-                IWETH(wbnb).withdraw(total);
+            if (token == WBNB) {
+                IWETH(WBNB).withdraw(total);
                 SafeToken.safeTransferETH(to, total);
             } else {
                 SafeToken.safeTransfer(token, to, total);
@@ -760,5 +730,5 @@ contract StrategyWithdrawMinimizeTrading is Ownable, ReentrancyGuard, Strategy {
         token.safeTransfer(to, value);
     }
 
-    function() external payable {}
+    receive() external payable {}
 }

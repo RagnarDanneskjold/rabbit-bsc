@@ -1,5 +1,5 @@
-pragma solidity 0.6.6;
-
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.0;
 
 interface IERC20 {
     /**
@@ -534,6 +534,43 @@ library SafeERC20 {
     }
 }
 
+/**
+ * @dev Contract module that helps prevent reentrant calls to a function.
+ *
+ * Inheriting from `ReentrancyGuard` will make the `nonReentrant` modifier
+ * available, which can be aplied to functions to make sure there are no nested
+ * (reentrant) calls to them.
+ *
+ * Note that because there is a single `nonReentrant` guard, functions marked as
+ * `nonReentrant` may not call one another. This can be worked around by making
+ * those functions `private`, and then adding `external` `nonReentrant` entry
+ * points to them.
+ */
+contract ReentrancyGuard {
+    /// @dev counter to allow mutex lock with only one SSTORE operation
+    uint256 private _guardCounter;
+
+    constructor () internal {
+        // The counter starts at one to prevent changing it from zero to a non-zero
+        // value, which is a more expensive operation.
+        _guardCounter = 1;
+    }
+
+    /**
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * Calling a `nonReentrant` function from another `nonReentrant`
+     * function is not supported. It is possible to prevent this from happening
+     * by making the `nonReentrant` function external, and make it call a
+     * `private` function that does the actual work.
+     */
+    modifier nonReentrant() {
+        _guardCounter += 1;
+        uint256 localCounter = _guardCounter;
+        _;
+        require(localCounter == _guardCounter, "ReentrancyGuard: reentrant call");
+    }
+}
+
 /*
  * @dev Provides information about the current execution context, including the
  * sender of the transaction and its data. While these are generally available
@@ -638,11 +675,14 @@ interface IFairLaunch {
 interface IRabbit{
     function mint(address recipient_, uint256 amount_) external returns (bool);
 }
+
 // FairLaunch is a smart contract for distributing Rabbit by asking user to stake the ERC20-based token.
-contract FairLaunch is IFairLaunch, Ownable {
+contract FairLaunch is IFairLaunch, Ownable ,ReentrancyGuard{
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
-
+  
+    uint256 constant GLO_VAL = 1e12;
+    
   // Info of each user.
   struct UserInfo {
     uint256 amount; // How many Staking tokens the user has provided.
@@ -694,7 +734,10 @@ contract FairLaunch is IFairLaunch, Ownable {
   event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
   event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
   event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
-
+    event SetDevAddress(address indexed devAddr);
+    event SetRabbitPerBlock(uint256 indexed rabbitPerBlock);
+    event ManualMint(address indexed to,uint256 indexed amount);
+    
   constructor(
     address _rabbit,
     address _devaddr,
@@ -712,13 +755,15 @@ contract FairLaunch is IFairLaunch, Ownable {
   }
   
     // Update dev address by the previous dev.
-  function setDev(address _devaddr) public {
-    require(msg.sender == devaddr, "dev: wut?");
+  function setDev(address _devaddr) public onlyOwner  {
+    require(_devaddr != address(0));
     devaddr = _devaddr;
+    emit SetDevAddress(_devaddr);
   }
   
   function setRabbitPerBlock(uint256 _rabbitPerBlock) public onlyOwner {
     rabbitPerBlock = _rabbitPerBlock;
+    emit SetRabbitPerBlock(_rabbitPerBlock);
   }
   
     // Set Bonus params. bonus will start to accu on the next block that this function executed
@@ -784,10 +829,12 @@ contract FairLaunch is IFairLaunch, Ownable {
 
   function manualMint(address _to, uint256 _amount) public onlyOwner {
     IRabbit(address(rabbit)).mint(_to, _amount);
+    emit ManualMint(_to,_amount);
   }
   
     // Return reward multiplier over the given _from to _to block.
   function getMultiplier(uint256 _lastRewardBlock, uint256 _currentBlock) public view returns (uint256) {
+      require(_lastRewardBlock <= _currentBlock, "Block range exceeded！");
     if (_currentBlock <= bonusEndBlock) {
       return _currentBlock.sub(_lastRewardBlock).mul(bonusMultiplier);
     }
@@ -807,9 +854,9 @@ contract FairLaunch is IFairLaunch, Ownable {
     if (block.number > pool.lastRewardBlock && lpSupply != 0) {
       uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
       uint256 rabbitReward = multiplier.mul(rabbitPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-      accRabbitPerShare = accRabbitPerShare.add(rabbitReward.mul(1e12).div(lpSupply));
+      accRabbitPerShare = accRabbitPerShare.add(rabbitReward.mul(GLO_VAL).div(lpSupply));
     }
-    return user.amount.mul(accRabbitPerShare).div(1e12).sub(user.rewardDebt);
+    return user.amount.mul(accRabbitPerShare).div(GLO_VAL).sub(user.rewardDebt);
   }
   
     // Update reward vairables for all pools. Be careful of gas spending!
@@ -835,20 +882,20 @@ contract FairLaunch is IFairLaunch, Ownable {
     uint256 rabbitReward = multiplier.mul(rabbitPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
     IRabbit(rabbit).mint(devaddr, rabbitReward.mul(19).div(100));
     IRabbit(rabbit).mint(address(this), rabbitReward);
-    pool.accRabbitPerShare = pool.accRabbitPerShare.add(rabbitReward.mul(1e12).div(lpSupply));
+    pool.accRabbitPerShare = pool.accRabbitPerShare.add(rabbitReward.mul(GLO_VAL).div(lpSupply));
     // update accRabbitPerShareTilBonusEnd
     if (block.number <= bonusEndBlock) {
       pool.accRabbitPerShareTilBonusEnd = pool.accRabbitPerShare;
     }
     if(block.number > bonusEndBlock && pool.lastRewardBlock < bonusEndBlock) {
       uint256 RabbitBonusPortion = bonusEndBlock.sub(pool.lastRewardBlock).mul(bonusMultiplier).mul(rabbitPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-      pool.accRabbitPerShareTilBonusEnd = pool.accRabbitPerShareTilBonusEnd.add(RabbitBonusPortion.mul(1e12).div(lpSupply));
+      pool.accRabbitPerShareTilBonusEnd = pool.accRabbitPerShareTilBonusEnd.add(RabbitBonusPortion.mul(GLO_VAL).div(lpSupply));
     }
     pool.lastRewardBlock = block.number;
   }
   
     // Deposit Staking tokens to FairLaunchToken for Rabbit allocation.
-  function deposit(address _for, uint256 _pid, uint256 _amount) public override {
+  function deposit(address _for, uint256 _pid, uint256 _amount) nonReentrant public override {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][_for];
     if (user.fundedBy != address(0)) require(user.fundedBy == msg.sender, "bad sof");
@@ -858,17 +905,17 @@ contract FairLaunch is IFairLaunch, Ownable {
     if (user.fundedBy == address(0)) user.fundedBy = msg.sender;
     IERC20(pool.stakeToken).safeTransferFrom(address(msg.sender), address(this), _amount);
     user.amount = user.amount.add(_amount);
-    user.rewardDebt = user.amount.mul(pool.accRabbitPerShare).div(1e12);
-    user.bonusDebt = user.amount.mul(pool.accRabbitPerShareTilBonusEnd).div(1e12);
+    user.rewardDebt = user.amount.mul(pool.accRabbitPerShare).div(GLO_VAL);
+    user.bonusDebt = user.amount.mul(pool.accRabbitPerShareTilBonusEnd).div(GLO_VAL);
     emit Deposit(msg.sender, _pid, _amount);
   }
 
   // Withdraw Staking tokens from FairLaunchToken.
-  function withdraw(address _for, uint256 _pid, uint256 _amount) public override {
+  function withdraw(address _for, uint256 _pid, uint256 _amount) nonReentrant public override {
     _withdraw(_for, _pid, _amount);
   }
 
-  function withdrawAll(address _for, uint256 _pid) public override {
+  function withdrawAll(address _for, uint256 _pid) nonReentrant public override {
     _withdraw(_for, _pid, userInfo[_pid][_for].amount);
   }
 
@@ -880,8 +927,8 @@ contract FairLaunch is IFairLaunch, Ownable {
     updatePool(_pid);
     _harvest(_for, _pid);
     user.amount = user.amount.sub(_amount);
-    user.rewardDebt = user.amount.mul(pool.accRabbitPerShare).div(1e12);
-    user.bonusDebt = user.amount.mul(pool.accRabbitPerShareTilBonusEnd).div(1e12);
+    user.rewardDebt = user.amount.mul(pool.accRabbitPerShare).div(GLO_VAL);
+    user.bonusDebt = user.amount.mul(pool.accRabbitPerShareTilBonusEnd).div(GLO_VAL);
     if (pool.stakeToken != address(0)) {
       IERC20(pool.stakeToken).safeTransfer(address(msg.sender), _amount);
     }
@@ -894,15 +941,15 @@ contract FairLaunch is IFairLaunch, Ownable {
     UserInfo storage user = userInfo[_pid][msg.sender];
     updatePool(_pid);
     _harvest(msg.sender, _pid);
-    user.rewardDebt = user.amount.mul(pool.accRabbitPerShare).div(1e12);
-    user.bonusDebt = user.amount.mul(pool.accRabbitPerShareTilBonusEnd).div(1e12);
+    user.rewardDebt = user.amount.mul(pool.accRabbitPerShare).div(GLO_VAL);
+    user.bonusDebt = user.amount.mul(pool.accRabbitPerShareTilBonusEnd).div(GLO_VAL);
   }
 
   function _harvest(address _to, uint256 _pid) internal {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][_to];
     require(user.amount > 0, "nothing to harvest");
-    uint256 pending = user.amount.mul(pool.accRabbitPerShare).div(1e12).sub(user.rewardDebt);
+    uint256 pending = user.amount.mul(pool.accRabbitPerShare).div(GLO_VAL).sub(user.rewardDebt);
     require(pending <= IERC20(rabbit).balanceOf(address(this)), "wtf not enough Rabbit");
     safeRabbitTransfer(_to, pending);
   }

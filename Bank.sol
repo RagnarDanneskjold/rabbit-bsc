@@ -1,4 +1,5 @@
-pragma solidity ^0.5.16;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.0;
 
 // Part: BankConfig
 
@@ -378,14 +379,14 @@ contract ERC20 is IERC20 {
     /**
      * @dev See `IERC20.totalSupply`.
      */
-    function totalSupply() public view returns (uint256) {
+    function totalSupply() override public view returns (uint256) {
         return _totalSupply;
     }
 
     /**
      * @dev See `IERC20.balanceOf`.
      */
-    function balanceOf(address account) public view returns (uint256) {
+    function balanceOf(address account) override public view returns (uint256) {
         return _balances[account];
     }
 
@@ -397,7 +398,7 @@ contract ERC20 is IERC20 {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public returns (bool) {
+    function transfer(address recipient, uint256 amount) override public returns (bool) {
         _transfer(msg.sender, recipient, amount);
         return true;
     }
@@ -405,7 +406,7 @@ contract ERC20 is IERC20 {
     /**
      * @dev See `IERC20.allowance`.
      */
-    function allowance(address owner, address spender) public view returns (uint256) {
+    function allowance(address owner, address spender) override public view returns (uint256) {
         return _allowances[owner][spender];
     }
 
@@ -416,7 +417,7 @@ contract ERC20 is IERC20 {
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 value) public returns (bool) {
+    function approve(address spender, uint256 value) override public returns (bool) {
         _approve(msg.sender, spender, value);
         return true;
     }
@@ -433,7 +434,7 @@ contract ERC20 is IERC20 {
      * - the caller must have allowance for `sender`'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) override public returns (bool) {
         _transfer(sender, recipient, amount);
         _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount));
         return true;
@@ -637,13 +638,13 @@ library SafeToken {
         require(success && (data.length == 0 || abi.decode(data, (bool))), "!safeTransferFrom");
     }
 
-    function safeTransferETH(address to, uint256 value) internal {
-        (bool success, ) = to.call.value(value)(new bytes(0));
+    function safeTransferETH(address to, uint256 val) internal {
+        (bool success, ) = to.call{value:val}(new bytes(0));
         require(success, "!safeTransferETH");
     }
 }
 
-pragma solidity ^0.5.0;
+pragma solidity ^0.6.0;
 
 /**
  * @dev Contract module which provides a basic access control mechanism, where
@@ -719,7 +720,7 @@ contract Ownable {
     }
 }
 
-pragma solidity ^0.5.16;
+pragma solidity ^0.6.0;
 
 contract IBToken is ERC20, Ownable {
     using SafeToken for address;
@@ -766,7 +767,8 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
     event RemoveDebt(uint indexed id, uint debtShare);
     event Work(uint256 indexed id, uint256 debt, uint back);
     event Kill(uint256 indexed id, address indexed killer, uint256 prize, uint256 left);
-
+    uint256 constant GLO_VAL = 10000;
+    
     struct TokenBank {
         address tokenAddr; 
         address ibTokenAddr; 
@@ -979,7 +981,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
             SafeToken.safeApprove(production.borrowToken, production.goblin, borrow);
         }
 
-        Goblin(production.goblin).work.value(sendBNB)(posId, msg.sender, production.borrowToken, borrow, debt, data);
+        Goblin(production.goblin).work{value:sendBNB}(posId, msg.sender, production.borrowToken, borrow, debt, data);
 
         uint256 backToken = isBorrowBNB? (address(this).balance.sub(beforeToken)) :
             SafeToken.myBalance(production.borrowToken).sub(beforeToken);
@@ -997,7 +999,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
 
             require(debt >= production.minDebt && debt <= production.maxDebt, "Debt scale is out of scope");
             uint256 health = Goblin(production.goblin).health(posId, production.borrowToken);
-            require(health.mul(production.openFactor) >= debt.mul(10000), "bad work factor");
+            require(health.mul(production.openFactor) >= debt.mul(GLO_VAL), "bad work factor");
         
             _addDebt(posId, production, debt);
         }
@@ -1005,7 +1007,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
     }
     
     function kill(uint256 posId) external payable onlyEOA nonReentrant {
-        require(killWhitelist[msg.sender] == true);
+        require(killWhitelist[msg.sender],"Not Whitelist");
         
         Position storage pos = positions[posId];
         require(pos.debtShare > 0, "no debt");
@@ -1014,7 +1016,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
         uint256 debt = _removeDebt(posId, production);
 
         uint256 health = Goblin(production.goblin).health(posId, production.borrowToken);
-        require(health.mul(production.liquidateFactor) < debt.mul(10000), "can't liquidate");
+        require(health.mul(production.liquidateFactor) < debt.mul(GLO_VAL), "can't liquidate");
         bool isBNB = production.borrowToken == address(0);
         uint256 before = isBNB? address(this).balance: SafeToken.myBalance(production.borrowToken);
         
@@ -1023,7 +1025,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
         uint256 back = isBNB? address(this).balance: SafeToken.myBalance(production.borrowToken);
         back = back.sub(before);
 
-        uint256 prize = back.mul(config.getLiquidateBps()).div(10000);
+        uint256 prize = back.mul(config.getLiquidateBps()).div(GLO_VAL);
         uint256 rest = back.sub(prize);
         uint256 left = 0;
 
@@ -1138,7 +1140,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
             uint256 ratePerSec = config.getInterestRate(totalDebt, totalBalance);
             uint256 interest = ratePerSec.mul(timePast).mul(totalDebt).div(1e18);
             
-            uint256 toReserve = interest.mul(config.getReserveBps()).div(10000);
+            uint256 toReserve = interest.mul(config.getReserveBps()).div(GLO_VAL);
             
             bank.totalReserve = bank.totalReserve.add(toReserve);
             bank.totalDebt = bank.totalDebt.add(interest);
@@ -1173,14 +1175,16 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
     }
     
     function createkillWhitelist(address addr,bool status) external onlyGov {
+        require(addr != address(0));
         killWhitelist[addr] = status;
     }
     
-    function setDevAddr(address _addr) external onlyGov{
-        devAddr = _addr;
+    function setDevAddr(address addr) external onlyGov{
+        require(addr != address(0));
+        devAddr = addr;
     }
     
-    function() external payable {}
+    receive() external payable {}
 }
 
 

@@ -1,5 +1,5 @@
-
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.0;
 
 /**
  * @dev Wrappers over Solidity's arithmetic operations with added overflow
@@ -113,17 +113,21 @@ contract TripleSlopeModel {
         uint256 total = debt.add(floating);
         uint256 utilization = total == 0? 0: debt.mul(10000).div(total);
         if (utilization < 5000) {
-            // Less than 50% utilization - 10% APY
-            return (uint256(10e16) / 365 days,total,utilization);
+            // Less than 50% utilization 0% - 20% APY
+            // return ((20e16 + utilization.sub(5000).mul(40e16).div(10000)) / 365 days,total,utilization);
+            return (utilization.mul(20e16).div(5000) / 365 days,total,utilization);
+            
         } else if (utilization < 9000) {
-            // Between 50% and 90% - 10%-25% APY
-            return ((10e16 + utilization.sub(5000).mul(15e16).div(10000)) / 365 days,total,utilization);
+            // Between 50% and 90% - 20% APY
+            return (uint256(20e16) / 365 days,total,utilization);
+            
         } else if (utilization < 10000) {
-            // Between 90% and 100% - 25%-100% APY
-            return ((25e16 + utilization.sub(9500).mul(75e16).div(10000)) / 365 days,total,utilization);
+            // Between 90% and 100% - 20%-150% APY
+            return ((20e16 + utilization.sub(9000).mul(1300e16).div(10000)) / 365 days,total,utilization);
+            
         } else {
-            // Not possible, but just in case - 100% APY
-            return (uint256(100e16) / 365 days,total,utilization);
+            // Not possible, but just in case - 200% APY
+            return (uint256(200e16) / 365 days,total,utilization);
         }
     }
 }

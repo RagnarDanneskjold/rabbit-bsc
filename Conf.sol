@@ -1,4 +1,5 @@
-pragma solidity ^0.5.16;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.0;
 
 interface IBankConfig {
 
@@ -12,9 +13,6 @@ interface IBankConfig {
 interface InterestModel {
     function getInterestRate(uint256 debt, uint256 floating) external view returns (uint256);
 }
-
-
-pragma solidity ^0.5.0;
 
 /**
  * @dev Contract module which provides a basic access control mechanism, where
@@ -92,8 +90,8 @@ contract Ownable {
 
 contract BankConfig is IBankConfig, Ownable {
 
-    uint256 public getReserveBps;
-    uint256 public getLiquidateBps;
+    uint256 override public getReserveBps;
+    uint256 override public getLiquidateBps;
     InterestModel public interestModel;
 
     constructor() public {}
@@ -104,7 +102,7 @@ contract BankConfig is IBankConfig, Ownable {
         interestModel = _interestModel;
     }
 
-    function getInterestRate(uint256 debt, uint256 floating) external view returns (uint256) {
+    function getInterestRate(uint256 debt, uint256 floating) override external view returns (uint256) {
         return interestModel.getInterestRate(debt, floating);
     }
 }

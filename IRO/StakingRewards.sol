@@ -1,6 +1,3 @@
-/**
- *Submitted for verification at Etherscan.io on 2020-12-12
-*/
 
 // SPDX-License-Identifier: MIT
 

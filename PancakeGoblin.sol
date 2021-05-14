@@ -1,6 +1,5 @@
-
-pragma solidity 0.5.16;
-
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.0;
 
 
 // Part: ERC20Interface
@@ -27,8 +26,6 @@ interface Goblin {
 }
 
 // File: contracts/interfaces/IMdexRouter.sol
-
-pragma solidity ^0.5.16;
 
 interface IUniswapV2Router02 {
   function factory() external pure returns (address);
@@ -235,8 +232,6 @@ interface IUniswapV2Router02 {
 }
 
 // File: contracts/interfaces/IMdexPair.sol
-
-pragma solidity ^0.5.16;
 
 interface IUniswapV2Pair {
     event Approval(address indexed owner, address indexed spender, uint value);
@@ -472,18 +467,9 @@ library SafeMath {
 
 // Part: Strategy
 interface Strategy {
-    /// @dev Execute worker strategy. Take LP tokens + debt token. Return LP tokens or debt token.
-    /// @param user The original user that is interacting with the operator.
-    /// @param borrowToken The token user want borrow.
-    /// @param borrow The amount user borrow from bank.
-    /// @param debt The user's total debt, for better decision making context.
-    /// @param data Extra calldata information passed along to this strategy.
-    /// @return token and amount need transfer back.
     function execute(address user, address borrowToken, uint256 borrow, uint256 debt, bytes calldata data) external payable;
-
 }
 
-pragma solidity ^0.5.16;
 
 interface IUniswapV2Factory {
     event PairCreated(address indexed token0, address indexed token1, address pair, uint);
@@ -557,8 +543,8 @@ library SafeToken {
         require(success && (data.length == 0 || abi.decode(data, (bool))), "!safeTransferFrom");
     }
 
-    function safeTransferETH(address to, uint256 value) internal {
-        (bool success, ) = to.call.value(value)(new bytes(0));
+    function safeTransferETH(address to, uint256 val) internal {
+        (bool success, ) = to.call{value:val}(new bytes(0));
         require(success, "!safeTransferETH");
     }
 }
@@ -852,6 +838,7 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     /// @param debt The user's debt amount.
     /// @param data The encoded data, consisting of strategy address and bytes to strategy.
     function work(uint256 id, address user, address borrowToken, uint256 borrow, uint256 debt, bytes calldata data)
+        override
         external
         payable
         onlyOperator
@@ -873,7 +860,7 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
             borrowToken.safeApprove(address(strategy), 0);
             borrowToken.safeApprove(address(strategy), uint256(-1));
         }
-        Strategy(strategy).execute.value(msg.value)(user, borrowToken, borrow, debt, ext);
+        Strategy(strategy).execute{value:msg.value}(user, borrowToken, borrow, debt, ext);
 
         // 3. Add LP tokens back to the farming pool.
         _addShare(id,user);
@@ -892,6 +879,7 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     /// @param id The position ID to perform liquidation.
     /// @param borrowToken The token user borrow from bank.
     function liquidate(uint256 id, address user, address borrowToken)
+        override
         external
         onlyOperator
         nonReentrant
@@ -920,8 +908,8 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
 
 
     /// @dev Re-invest whatever this worker has earned back to staked LP tokens.
-    function reinvest() public onlyEOA nonReentrant {
-        require(killWhitelist[msg.sender] == true);
+    function reinvest() override public onlyEOA nonReentrant {
+        require(killWhitelist[msg.sender],"Not Whitelist");
         
         // 1. Withdraw all the rewards.
         masterChef.withdraw(pid, 0);
@@ -956,7 +944,7 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     /// @dev Return the amount of debt token to receive if we are to liquidate the given position.
     /// @param id The position ID to perform health check.
     /// @param borrowToken The token this position had debt.
-    function health(uint256 id, address borrowToken) external view returns (uint256) {
+    function health(uint256 id, address borrowToken) override external view returns (uint256) {
         bool isDebtBnb = borrowToken == address(0);
         require(borrowToken == token0 || borrowToken == token1 || isDebtBnb, "borrowToken not token0 and token1");
 
@@ -1010,7 +998,7 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         if (balance > 0) {
           uint share = balanceToShare(balance);
           masterChef.deposit(pid, balance);
-          _fairLaunchDeposit(user,balance);
+          _fairLaunchDeposit(user,share);
           shares[id] = shares[id].add(share);
           totalShare = totalShare.add(share);
           emit AddShare(id, share);
@@ -1025,7 +1013,7 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
           totalShare = totalShare.sub(share);
           shares[id] = 0;
           masterChef.withdraw(pid, balance);
-          _fairLaunchWithdraw(user,balance);
+          _fairLaunchWithdraw(user,share);
           emit RemoveShare(id, share);
         }
     }
@@ -1127,5 +1115,5 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         killWhitelist[addr] = status;
     }
     
-    function() external payable {}
+    receive() external payable {}
 }

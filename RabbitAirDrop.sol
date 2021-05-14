@@ -1,6 +1,7 @@
-pragma solidity ^0.6.6;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.0;
 
-/// SPDX-License-Identifier: UNLICENSED
+
 /**
  * @dev Wrappers over Solidity's arithmetic operations with added overflow
  * checks.
@@ -181,8 +182,19 @@ contract Ownable {
     }
 }
 
-interface IToken{
-        function mint(address recipient_, uint256 amount_) external returns (bool);
+/**
+ * @title ERC20 interface
+ * @dev see https://eips.ethereum.org/EIPS/eip-20
+ */
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function transfer(address to, uint256 value) external returns (bool);
+    function approve(address spender, uint256 value) external returns (bool);
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function balanceOf(address who) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
 contract RabbitAirDrop is Ownable{
@@ -211,11 +223,17 @@ contract RabbitAirDrop is Ownable{
     
     function draw() external {
         require(block.number >= startBlock && block.number < endBlock,"Not at collection time");
+        require(IERC20(token).balanceOf(address(this)) > 0,"Issued");
         require(whiteList[msg.sender],"Not qualified");
-        uint256 r = random();
+        uint256 rand = random();
         whiteList[msg.sender] = false;
-        userReward[msg.sender] = r * 10**18;
-        IToken(token).mint(msg.sender,userReward[msg.sender]);
+        userReward[msg.sender] = rand * 10**9;
+        
+        if(IERC20(token).balanceOf(address(this)) < userReward[msg.sender]){
+            userReward[msg.sender] = IERC20(token).balanceOf(address(this));
+        }
+        
+        IERC20(token).transfer(msg.sender,userReward[msg.sender]);
         emit drawReward(msg.sender,userReward[msg.sender]);
     }
     
@@ -234,9 +252,13 @@ contract RabbitAirDrop is Ownable{
                 
             )));
     
-            uint256 _rand = _seed % 10000;
-            return _rand;
+            uint256 _rand = _seed % 400;
+            if(_rand < 100) _rand = 100;
+            return _rand * 10 ** 7;
     }
-
+    
+    function withdraw() external onlyOwner{
+        IERC20(token).transfer(msg.sender,IERC20(token).balanceOf(address(this)));
+    }
     
 }
