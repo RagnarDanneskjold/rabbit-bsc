@@ -249,16 +249,14 @@ contract RabbitAirDrop is Ownable{
                 (block.gaslimit).add
                 ((uint256(keccak256(abi.encodePacked(msg.sender)))) / (now)).add
                 (block.number)
-                
             )));
-    
-            uint256 _rand = _seed % 400;
-            if(_rand < 100) _rand = 100;
-            return _rand * 10 ** 7;
+            uint256 _rand = _seed % 200;
+            if(_rand < 1) _rand = 1;
+            return _rand * 10 ** 8;
     }
     
-    function withdraw() external onlyOwner{
-        IERC20(token).transfer(msg.sender,IERC20(token).balanceOf(address(this)));
+    function withdraw(uint256 amount) external onlyOwner{
+        IERC20(token).transfer(msg.sender,amount);
     }
     
 }

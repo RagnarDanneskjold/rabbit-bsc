@@ -114,7 +114,6 @@ contract TripleSlopeModel {
         uint256 utilization = total == 0? 0: debt.mul(10000).div(total);
         if (utilization < 5000) {
             // Less than 50% utilization 0% - 20% APY
-            // return ((20e16 + utilization.sub(5000).mul(40e16).div(10000)) / 365 days,total,utilization);
             return (utilization.mul(20e16).div(5000) / 365 days,total,utilization);
             
         } else if (utilization < 9000) {
