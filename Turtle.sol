@@ -939,14 +939,14 @@ contract Turtle is Context, IERC20, Ownable {
     }
 
     function _getTValues(uint256 tAmount) private view returns (uint256, uint256, uint256) {
-        uint256 tFee = calculateTaxFee(tAmount);
-        uint256 tLiquidity = calculateLiquidityFee(tAmount);
-        uint256 tTransferAmount = tAmount.sub(tFee).sub(tLiquidity);
+        uint256 tFee = calculateTaxFee(tAmount); // 2%  转账数量  *  0 / 100
+        uint256 tLiquidity = calculateLiquidityFee(tAmount); // 转账数量  * 0 / 100
+        uint256 tTransferAmount = tAmount.sub(tFee).sub(tLiquidity); //shi ji zhuan z实际转账 95%
         return (tTransferAmount, tFee, tLiquidity);
     }
 
     function _getRValues(uint256 tAmount, uint256 tFee, uint256 tLiquidity, uint256 currentRate) private pure returns (uint256, uint256, uint256) {
-        uint256 rAmount = tAmount.mul(currentRate);
+        uint256 rAmount = tAmount.mul(currentRate);// 转账 
         uint256 rFee = tFee.mul(currentRate);
         uint256 rLiquidity = tLiquidity.mul(currentRate);
         uint256 rTransferAmount = rAmount.sub(rFee).sub(rLiquidity);

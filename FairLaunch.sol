@@ -880,7 +880,7 @@ contract FairLaunch is IFairLaunch, Ownable ,ReentrancyGuard{
     }
     uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
     uint256 rabbitReward = multiplier.mul(rabbitPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-    IRabbit(rabbit).mint(devaddr, rabbitReward.mul(19).div(100));
+    IRabbit(rabbit).mint(devaddr, rabbitReward.mul(20).div(100));
     IRabbit(rabbit).mint(address(this), rabbitReward);
     pool.accRabbitPerShare = pool.accRabbitPerShare.add(rabbitReward.mul(GLO_VAL).div(lpSupply));
     // update accRabbitPerShareTilBonusEnd

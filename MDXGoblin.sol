@@ -945,7 +945,7 @@ contract MDXGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
     {
         bool isBorrowBNB = borrowToken == address(0);
         require(borrowToken == token0 || borrowToken == token1 || isBorrowBNB, "borrowToken not token0 and token1");
-        reinvest();
+        _reinvest();
         _harvest(user);
         // 1. Convert the position back to LP tokens and use liquidate strategy.
         _removeShare(id,user);
