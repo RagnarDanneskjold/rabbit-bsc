@@ -110,23 +110,22 @@ library SafeMath {
 contract TripleSlopeModel {
     using SafeMath for uint256;
     function getInterestRate(uint256 debt, uint256 floating) external pure returns (uint256,uint256,uint256) {
-        uint256 total = debt.add(floating);
-        uint256 utilization = total == 0? 0: debt.mul(10000).div(total);
+        uint256 utilization = floating == 0? 0: debt.mul(10000).div(floating);
         if (utilization < 5000) {
             // Less than 50% utilization 0% - 20% APY
-            return (utilization.mul(20e16).div(5000) / 365 days,total,utilization);
+            return (utilization.mul(20e16).div(5000) / 365 days,floating,utilization);
             
         } else if (utilization < 9000) {
             // Between 50% and 90% - 20% APY
-            return (uint256(20e16) / 365 days,total,utilization);
+            return (uint256(20e16) / 365 days,floating,utilization);
             
         } else if (utilization < 10000) {
             // Between 90% and 100% - 20%-150% APY
-            return ((20e16 + utilization.sub(9000).mul(1300e16).div(10000)) / 365 days,total,utilization);
+            return ((20e16 + utilization.sub(9000).mul(1300e16).div(10000)) / 365 days,floating,utilization);
             
         } else {
             // Not possible, but just in case - 200% APY
-            return (uint256(200e16) / 365 days,total,utilization);
+            return (uint256(200e16) / 365 days,floating,utilization);
         }
     }
 }
