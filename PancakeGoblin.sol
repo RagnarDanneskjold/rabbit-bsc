@@ -920,19 +920,21 @@ contract PancakeswapGoblin is Governable,ReentrancyGuardUpgradeSafe, Goblin {
         cake.safeTransfer(devAddr,fee);
         
         // 3. Convert all the remaining rewards to BNB.
-        address[] memory path;
-        if (baseToken == wbnb) {
-          path = new address[](2);
-          path[0] = address(cake);
-          path[1] = address(wbnb);
-        } else {
-          path = new address[](3);
-          path[0] = address(cake);
-          path[1] = address(wbnb);
-          path[2] = address(baseToken);
+        if (baseToken != cake) {
+            address[] memory path;
+            if (baseToken == wbnb) {
+              path = new address[](2);
+              path[0] = address(cake);
+              path[1] = address(wbnb);
+            } else {
+              path = new address[](3);
+              path[0] = address(cake);
+              path[1] = address(wbnb);
+              path[2] = address(baseToken); // cake
+            }
+            router.swapExactTokensForTokens(reward.sub(fee), 0, path, address(this), now);
         }
-        
-        router.swapExactTokensForTokens(reward.sub(fee), 0, path, address(this), now);
+
         // 4. Use add BNB strategy to convert all BNB to LP tokens.
         baseToken.safeTransfer(address(addStrat),baseToken.myBalance());
         addStrat.execute(address(0),address(0), 0,0, abi.encode(baseToken, farmingToken, 0));

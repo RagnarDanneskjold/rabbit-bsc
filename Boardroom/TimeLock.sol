@@ -178,9 +178,9 @@ contract Timelock {
   uint public constant MINIMUM_DELAY = 1 days;
   uint public constant MAXIMUM_DELAY = 30 days;
 
-  address public admin; 
+  address public admin;
   address public pendingAdmin;
-  uint public delay; 
+  uint public delay;
   bool public admin_initialized;
 
   mapping (bytes32 => bool) public queuedTransactions;
@@ -199,7 +199,7 @@ contract Timelock {
   receive() external payable { }
 
   function setDelay(uint delay_) public {
-    require(msg.sender == address(this), "Timelock::setDelay: Call must come from Timelock."); 
+    require(msg.sender == address(this), "Timelock::setDelay: Call must come from Timelock.");
     require(delay_ >= MINIMUM_DELAY, "Timelock::setDelay: Delay must exceed minimum delay.");
     require(delay_ <= MAXIMUM_DELAY, "Timelock::setDelay: Delay must not exceed maximum delay.");
     delay = delay_;

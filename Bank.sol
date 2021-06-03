@@ -1183,7 +1183,7 @@ contract Bank is Initializable, ReentrancyGuardUpgradeSafe, Governable,IBTokenFa
         require(addr != address(0));
         devAddr = addr;
     }
-    
+
     receive() external payable {}
 }
 
