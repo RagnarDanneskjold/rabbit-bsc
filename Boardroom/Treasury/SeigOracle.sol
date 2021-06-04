@@ -641,7 +641,7 @@ contract Oracle {
 
     /* ========= CONSTANT VARIABLES ======== */
 
-    uint256 public PERIOD = 1 hours;
+    uint256 public PERIOD = 24 hours;
 
     /* ========== STATE VARIABLES ========== */
 

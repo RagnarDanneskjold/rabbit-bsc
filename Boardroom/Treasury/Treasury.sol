@@ -601,6 +601,7 @@ pragma solidity ^0.6.0;
 interface IBoardroom {
     function allocateSeigniorage(uint256 amount) external;
     function burnReward() external;
+    function setTimeLock(uint256 time) external;
 }
 
 // File: contracts/interfaces/IBasisAsset.sol
@@ -1206,6 +1207,7 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
 
     address public bondOracle;
     address public seigniorageOracle;
+    uint256 public timePeriod = 172800; // 48 hour
 
     // ========== PARAMS
     uint256 public cashPriceOne;
@@ -1406,11 +1408,14 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
             }
             return; // just advance epoch instead revert
         }
+        
         diveflationAmount = 0;
+        IBoardroom(boardroom).setTimeLock(block.timestamp.add(timePeriod));
+
         // circulating supply
         uint256 cashSupply = totalFlow.sub(IERC20(cash).balanceOf(address(this)));
         uint256 percentage = cashPrice.sub(cashPriceOne);
-        uint256 seigniorage = (cashSupply.mul(percentage).div(1e18)).mul(15).div(100);
+        uint256 seigniorage = (cashSupply.mul(percentage).div(1e18)).mul(60).div(100);
 
         // ======================== BIP-3
         uint256 fundReserve = seigniorage.mul(fundAllocationRate).div(100);

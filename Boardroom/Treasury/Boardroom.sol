@@ -804,6 +804,7 @@ contract Boardroom is ShareWrapper, ContractGuard, Operator {
     /* ========== STATE VARIABLES ========== */
 
     IERC20 public cash;
+    uint256 public timeLock;
 
     mapping(address => Boardseat) private directors;
     BoardSnapshot[] private boardHistory;
@@ -893,13 +894,10 @@ contract Boardroom is ShareWrapper, ContractGuard, Operator {
         directorExists
     {
         require(amount > 0, 'Boardroom: Cannot withdraw 0');
+        require(block.timestamp >= timeLock,"Boardroom: Withdraw Time Lockd");
         claimReward();
         super.withdraw(amount);
         emit Withdrawn(msg.sender, amount);
-    }
-
-    function exit() external {
-        withdraw(balanceOf(msg.sender));
     }
 
     function claimReward() public {
@@ -951,6 +949,10 @@ contract Boardroom is ShareWrapper, ContractGuard, Operator {
             // transfer treasury
             _cash.transfer(operator(),boardBalance);
         }
+    }
+
+    function setTimeLock(uint256 time) external onlyOneBlock onlyOperator {
+        timeLock = time;
     }
 
     /* ========== EVENTS ========== */
