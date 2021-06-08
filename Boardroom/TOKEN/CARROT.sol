@@ -740,7 +740,7 @@ pragma solidity ^0.6.0;
 
 contract CARROT is ERC20, Operator {
     event LogRebase(uint256 indexed epoch, uint256 totalSupply);
-    constructor() public ERC20('CARROT STABLE COIN TEST', 'CARROT TEST') {}
+    constructor() public ERC20('CARROT STABLE COIN', 'CARROT') {}
     function rebase(uint256 epoch, int256 supplyDelta)
         public 
         onlyOperator 
