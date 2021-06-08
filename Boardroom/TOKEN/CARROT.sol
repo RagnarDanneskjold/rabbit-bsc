@@ -5,14 +5,13 @@
 
 pragma solidity >=0.6.0 <0.8.0;
 
-/*
+/* 
  * @dev Provides information about the current execution context, including the
  * sender of the transaction and its data. While these are generally available
  * via msg.sender and msg.data, they should not be accessed in such a direct
  * manner, since when dealing with GSN meta-transactions the account sending and
  * paying for execution may not be the actual sender (as far as an application
  * is concerned).
- *
  * This contract is only required for intermediate, library-like contracts.
  */
 abstract contract Context {
@@ -26,131 +25,13 @@ abstract contract Context {
     }
 }
 
-// File: @openzeppelin/contracts/access/Ownable.sol
-
-
-pragma solidity >=0.6.0 <0.8.0;
-
-/**
- * @dev Contract module which provides a basic access control mechanism, where
- * there is an account (an owner) that can be granted exclusive access to
- * specific functions.
- *
- * By default, the owner account will be the one that deploys the contract. This
- * can later be changed with {transferOwnership}.
- *
- * This module is used through inheritance. It will make available the modifier
- * `onlyOwner`, which can be applied to your functions to restrict their use to
- * the owner.
- */
-abstract contract Ownable is Context {
-    address private _owner;
-
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    /**
-     * @dev Initializes the contract setting the deployer as the initial owner.
-     */
-    constructor () internal {
-        address msgSender = _msgSender();
-        _owner = msgSender;
-        emit OwnershipTransferred(address(0), msgSender);
-    }
-
-    /**
-     * @dev Returns the address of the current owner.
-     */
-    function owner() public view returns (address) {
-        return _owner;
-    }
-
-    /**
-     * @dev Throws if called by any account other than the owner.
-     */
-    modifier onlyOwner() {
-        require(_owner == _msgSender(), "Ownable: caller is not the owner");
-        _;
-    }
-
-    /**
-     * @dev Leaves the contract without owner. It will not be possible to call
-     * `onlyOwner` functions anymore. Can only be called by the current owner.
-     *
-     * NOTE: Renouncing ownership will leave the contract without an owner,
-     * thereby removing any functionality that is only available to the owner.
-     */
-    function renounceOwnership() public virtual onlyOwner {
-        emit OwnershipTransferred(_owner, address(0));
-        _owner = address(0);
-    }
-
-    /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Can only be called by the current owner.
-     */
-    function transferOwnership(address newOwner) public virtual onlyOwner {
-        require(newOwner != address(0), "Ownable: new owner is the zero address");
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
-    }
-}
-
-// File: contracts/owner/Operator.sol
-
-pragma solidity ^0.6.0;
-
-
-
-contract Operator is Context, Ownable {
-    address private _operator;
-
-    event OperatorTransferred(
-        address indexed previousOperator,
-        address indexed newOperator
-    );
-
-    constructor() internal {
-        _operator = _msgSender();
-        emit OperatorTransferred(address(0), _operator);
-    }
-
-    function operator() public view returns (address) {
-        return _operator;
-    }
-
-    modifier onlyOperator() {
-        require(
-            _operator == msg.sender,
-            'operator: caller is not the operator'
-        );
-        _;
-    }
-
-    function isOperator() public view returns (bool) {
-        return _msgSender() == _operator;
-    }
-
-    function transferOperator(address newOperator_) public onlyOwner {
-        _transferOperator(newOperator_);
-    }
-
-    function _transferOperator(address newOperator_) internal {
-        require(
-            newOperator_ != address(0),
-            'operator: zero address given for new operator'
-        );
-        emit OperatorTransferred(address(0), newOperator_);
-        _operator = newOperator_;
-    }
-}
-
 // File: @openzeppelin/contracts/token/ERC20/IERC20.sol
 
 
 pragma solidity >=0.6.0 <0.8.0;
 
 /**
- * @dev Interface of the ERC20 standard as defined in the EIP.
+ * @dev Interface of the ERC20 standard as defined in the EIP. 
  */
 interface IERC20 {
     /**
@@ -384,6 +265,84 @@ library SafeMath {
     }
 }
 
+/**
+ * @title SafeMathInt
+ * @dev Math operations for int256 with overflow safety checks.
+ */
+library SafeMathInt {
+    int256 private constant MIN_INT256 = int256(1) << 255;
+    int256 private constant MAX_INT256 = ~(int256(1) << 255);
+
+    /**
+     * @dev Multiplies two int256 variables and fails on overflow.
+     */
+    function mul(int256 a, int256 b)
+        internal
+        pure
+        returns (int256)
+    {
+        int256 c = a * b;
+
+        // Detect overflow when multiplying MIN_INT256 with -1
+        require(c != MIN_INT256 || (a & MIN_INT256) != (b & MIN_INT256));
+        require((b == 0) || (c / b == a));
+        return c;
+    }
+
+    /**
+     * @dev Division of two int256 variables and fails on overflow.
+     */
+    function div(int256 a, int256 b)
+        internal
+        pure
+        returns (int256)
+    {
+        // Prevent overflow when dividing MIN_INT256 by -1
+        require(b != -1 || a != MIN_INT256);
+
+        // Solidity already throws when dividing by 0.
+        return a / b;
+    }
+
+    /**
+     * @dev Subtracts two int256 variables and fails on overflow.
+     */
+    function sub(int256 a, int256 b)
+        internal
+        pure
+        returns (int256)
+    {
+        int256 c = a - b;
+        require((b >= 0 && c <= a) || (b < 0 && c > a));
+        return c;
+    }
+
+    /**
+     * @dev Adds two int256 variables and fails on overflow.
+     */
+    function add(int256 a, int256 b)
+        internal
+        pure
+        returns (int256)
+    {
+        int256 c = a + b;
+        require((b >= 0 && c >= a) || (b < 0 && c < a));
+        return c;
+    }
+
+    /**
+     * @dev Converts to absolute value, and fails on overflow.
+     */
+    function abs(int256 a)
+        internal
+        pure
+        returns (int256)
+    {
+        require(a != MIN_INT256);
+        return a < 0 ? -a : a;
+    }
+}
+
 // File: @openzeppelin/contracts/token/ERC20/ERC20.sol
 
 
@@ -418,17 +377,23 @@ pragma solidity >=0.6.0 <0.8.0;
  */
 contract ERC20 is Context, IERC20 {
     using SafeMath for uint256;
+    using SafeMathInt for int256;
+    uint256 private constant MAX_UINT256 = ~uint256(0);
+    uint256 private constant MAX_SUPPLY = ~uint128(0);
+    uint256 private constant INITIAL_FRAGMENTS_SUPPLY = 100 * 10 ** 10 * (10**18); 
+    uint256 private constant TOTAL_GONS = MAX_UINT256 - (MAX_UINT256 % INITIAL_FRAGMENTS_SUPPLY);
+    uint256 private _gonsPerFragment;
 
+    
     mapping (address => uint256) private _balances;
 
     mapping (address => mapping (address => uint256)) private _allowances;
 
     uint256 private _totalSupply;
-
     string private _name;
     string private _symbol;
     uint8 private _decimals;
-
+    
     /**
      * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
      * a default value of 18.
@@ -442,6 +407,9 @@ contract ERC20 is Context, IERC20 {
         _name = name_;
         _symbol = symbol_;
         _decimals = 18;
+        _totalSupply = INITIAL_FRAGMENTS_SUPPLY;
+        _balances[msg.sender] = TOTAL_GONS;
+        _gonsPerFragment = TOTAL_GONS.div(_totalSupply);
     }
 
     /**
@@ -487,7 +455,7 @@ contract ERC20 is Context, IERC20 {
      * @dev See {IERC20-balanceOf}.
      */
     function balanceOf(address account) public view override returns (uint256) {
-        return _balances[account];
+        return _balances[account].div(_gonsPerFragment);
     }
 
     /**
@@ -595,51 +563,12 @@ contract ERC20 is Context, IERC20 {
         require(sender != address(0), "ERC20: transfer from the zero address");
         require(recipient != address(0), "ERC20: transfer to the zero address");
 
-        _beforeTokenTransfer(sender, recipient, amount);
-
-        _balances[sender] = _balances[sender].sub(amount, "ERC20: transfer amount exceeds balance");
-        _balances[recipient] = _balances[recipient].add(amount);
+        // _beforeTokenTransfer(sender, recipient, amount);
+        
+        uint256 gonValue = amount.mul(_gonsPerFragment);
+        _balances[sender] = _balances[sender].sub(gonValue, "ERC20: transfer amount exceeds balance");
+        _balances[recipient] = _balances[recipient].add(gonValue);
         emit Transfer(sender, recipient, amount);
-    }
-
-    /** @dev Creates `amount` tokens and assigns them to `account`, increasing
-     * the total supply.
-     *
-     * Emits a {Transfer} event with `from` set to the zero address.
-     *
-     * Requirements:
-     *
-     * - `to` cannot be the zero address.
-     */
-    function _mint(address account, uint256 amount) internal virtual {
-        require(account != address(0), "ERC20: mint to the zero address");
-
-        _beforeTokenTransfer(address(0), account, amount);
-
-        _totalSupply = _totalSupply.add(amount);
-        _balances[account] = _balances[account].add(amount);
-        emit Transfer(address(0), account, amount);
-    }
-
-    /**
-     * @dev Destroys `amount` tokens from `account`, reducing the
-     * total supply.
-     *
-     * Emits a {Transfer} event with `to` set to the zero address.
-     *
-     * Requirements:
-     *
-     * - `account` cannot be the zero address.
-     * - `account` must have at least `amount` tokens.
-     */
-    function _burn(address account, uint256 amount) internal virtual {
-        require(account != address(0), "ERC20: burn from the zero address");
-
-        _beforeTokenTransfer(account, address(0), amount);
-
-        _balances[account] = _balances[account].sub(amount, "ERC20: burn amount exceeds balance");
-        _totalSupply = _totalSupply.sub(amount);
-        emit Transfer(account, address(0), amount);
     }
 
     /**
@@ -664,111 +593,163 @@ contract ERC20 is Context, IERC20 {
     }
 
     /**
-     * @dev Sets {decimals} to a value other than the default one of 18.
-     *
-     * WARNING: This function should only be called from the constructor. Most
-     * applications that interact with token contracts will not expect
-     * {decimals} to ever change, and may work incorrectly if it does.
+     * @dev Notifies Fragments contract about a new rebase cycle.
+     * @param supplyDelta The number of new fragment tokens to add into circulation via expansion.
+     * Return The total number of fragments after the supply adjustment.
      */
-    function _setupDecimals(uint8 decimals_) internal {
-        _decimals = decimals_;
-    }
-
-    /**
-     * @dev Hook that is called before any transfer of tokens. This includes
-     * minting and burning.
-     *
-     * Calling conditions:
-     *
-     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
-     * will be to transferred to `to`.
-     * - when `from` is zero, `amount` tokens will be minted for `to`.
-     * - when `to` is zero, `amount` of ``from``'s tokens will be burned.
-     * - `from` and `to` are never both zero.
-     *
-     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
-     */
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual { }
+    function _rebase(int256 supplyDelta) internal virtual returns(uint256){
+        if (supplyDelta == 0) {
+            return _totalSupply;
+        }
+        if (supplyDelta < 0) {
+            _totalSupply = _totalSupply.sub(uint256(supplyDelta.abs()));
+        } else {
+            _totalSupply = _totalSupply.add(uint256(supplyDelta));
+        }
+        if (_totalSupply > MAX_SUPPLY) {
+            _totalSupply = MAX_SUPPLY;
+        }
+        _gonsPerFragment = TOTAL_GONS.div(_totalSupply);
+     }
+     
 }
 
-// File: @openzeppelin/contracts/token/ERC20/ERC20Burnable.sol
+// File: @openzeppelin/contracts/access/Ownable.sol
 
 
 pragma solidity >=0.6.0 <0.8.0;
 
-
-
 /**
- * @dev Extension of {ERC20} that allows token holders to destroy both their own
- * tokens and those that they have an allowance for, in a way that can be
- * recognized off-chain (via event analysis).
+ * @dev Contract module which provides a basic access control mechanism, where
+ * there is an account (an owner) that can be granted exclusive access to
+ * specific functions.
+ *
+ * By default, the owner account will be the one that deploys the contract. This
+ * can later be changed with {transferOwnership}.
+ *
+ * This module is used through inheritance. It will make available the modifier
+ * `onlyOwner`, which can be applied to your functions to restrict their use to
+ * the owner.
  */
-abstract contract ERC20Burnable is Context, ERC20 {
-    using SafeMath for uint256;
+abstract contract Ownable is Context {
+    address private _owner;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /**
-     * @dev Destroys `amount` tokens from the caller.
-     *
-     * See {ERC20-_burn}.
+     * @dev Initializes the contract setting the deployer as the initial owner.
      */
-    function burn(uint256 amount) public virtual {
-        _burn(_msgSender(), amount);
+    constructor () internal {
+        address msgSender = _msgSender();
+        _owner = msgSender;
+        emit OwnershipTransferred(address(0), msgSender);
     }
 
     /**
-     * @dev Destroys `amount` tokens from `account`, deducting from the caller's
-     * allowance.
-     *
-     * See {ERC20-_burn} and {ERC20-allowance}.
-     *
-     * Requirements:
-     *
-     * - the caller must have allowance for ``accounts``'s tokens of at least
-     * `amount`.
+     * @dev Returns the address of the current owner.
      */
-    function burnFrom(address account, uint256 amount) public virtual {
-        uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "ERC20: burn amount exceeds allowance");
+    function owner() public view returns (address) {
+        return _owner;
+    }
 
-        _approve(account, _msgSender(), decreasedAllowance);
-        _burn(account, amount);
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        require(_owner == _msgSender(), "Ownable: caller is not the owner");
+        _;
+    }
+
+    /**
+     * @dev Leaves the contract without owner. It will not be possible to call
+     * `onlyOwner` functions anymore. Can only be called by the current owner.
+     *
+     * NOTE: Renouncing ownership will leave the contract without an owner,
+     * thereby removing any functionality that is only available to the owner.
+     */
+    function renounceOwnership() public virtual onlyOwner {
+        emit OwnershipTransferred(_owner, address(0));
+        _owner = address(0);
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Can only be called by the current owner.
+     */
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        emit OwnershipTransferred(_owner, newOwner);
+        _owner = newOwner;
     }
 }
+
+// File: contracts/owner/Operator.sol
+
 pragma solidity ^0.6.0;
 
-contract Mbond is ERC20Burnable, Ownable, Operator {
-    /**
-     * @notice Constructs the Basis Bond ERC-20 contract.
-     */
-    constructor() public ERC20('Mbond_TEST', 'Mbond_TEST') {}
 
-    /**
-     * @notice Operator mints basis bonds to a recipient
-     * @param recipient_ The address of recipient
-     * @param amount_ The amount of basis bonds to mint to
-     * @return whether the process has been done
-     */
-    function mint(address recipient_, uint256 amount_)
-        public
-        onlyOperator
-        returns (bool)
+
+contract Operator is Context, Ownable {
+    address private _operator;
+
+    event OperatorTransferred(
+        address indexed previousOperator,
+        address indexed newOperator
+    );
+
+    constructor() internal {
+        _operator = _msgSender();
+        emit OperatorTransferred(address(0), _operator);
+    }
+
+    function operator() public view returns (address) {
+        return _operator;
+    }
+
+    modifier onlyOperator() {
+        require(
+            _operator == msg.sender,
+            'operator: caller is not the operator'
+        );
+        _;
+    }
+
+    function isOperator() public view returns (bool) {
+        return _msgSender() == _operator;
+    }
+
+    function transferOperator(address newOperator_) public onlyOwner {
+        _transferOperator(newOperator_);
+    }
+
+    function _transferOperator(address newOperator_) internal {
+        require(
+            newOperator_ != address(0),
+            'operator: zero address given for new operator'
+        );
+        _operator = newOperator_;
+        emit OperatorTransferred(_operator, newOperator_);
+    }
+}
+
+
+
+pragma solidity ^0.6.0;
+
+
+
+contract CARROT is ERC20, Operator {
+    event LogRebase(uint256 indexed epoch, uint256 totalSupply);
+    constructor() public ERC20('CARROT STABLE COIN TEST', 'CARROT TEST') {}
+    function rebase(uint256 epoch, int256 supplyDelta)
+        public 
+        onlyOperator 
+        returns(uint256)
     {
-        uint256 balanceBefore = balanceOf(recipient_);
-        _mint(recipient_, amount_);
-        uint256 balanceAfter = balanceOf(recipient_);
-
-        return balanceAfter > balanceBefore;
+        uint256 total = _rebase(supplyDelta);
+        emit LogRebase(epoch, total);
+        return total;
     }
 
-    function burn(uint256 amount) public override onlyOperator {
-        super.burn(amount);
-    }
-
-    function burnFrom(address account, uint256 amount)
-        public
-        override
-        onlyOperator
-    {
-        super.burnFrom(account, amount);
-    }
 }
 

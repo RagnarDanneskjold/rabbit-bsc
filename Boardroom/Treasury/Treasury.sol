@@ -828,6 +828,104 @@ library Safe112 {
     }
 }
 
+/**
+ * @title Various utilities useful for uint256.
+ */
+library UInt256Lib {
+
+    uint256 private constant MAX_INT256 = ~(uint256(1) << 255);
+
+    /**
+     * @dev Safely converts a uint256 to an int256.
+     */
+    function toInt256Safe(uint256 a)
+        internal
+        pure
+        returns (int256)
+    {
+        require(a <= MAX_INT256);
+        return int256(a);
+    }
+}
+
+/**
+ * @title SafeMathInt
+ * @dev Math operations for int256 with overflow safety checks.
+ */
+library SafeMathInt {
+    int256 private constant MIN_INT256 = int256(1) << 255;
+    int256 private constant MAX_INT256 = ~(int256(1) << 255);
+
+    /**
+     * @dev Multiplies two int256 variables and fails on overflow.
+     */
+    function mul(int256 a, int256 b)
+        internal
+        pure
+        returns (int256)
+    {
+        int256 c = a * b;
+
+        // Detect overflow when multiplying MIN_INT256 with -1
+        require(c != MIN_INT256 || (a & MIN_INT256) != (b & MIN_INT256));
+        require((b == 0) || (c / b == a));
+        return c;
+    }
+
+    /**
+     * @dev Division of two int256 variables and fails on overflow.
+     */
+    function div(int256 a, int256 b)
+        internal
+        pure
+        returns (int256)
+    {
+        // Prevent overflow when dividing MIN_INT256 by -1
+        require(b != -1 || a != MIN_INT256);
+
+        // Solidity already throws when dividing by 0.
+        return a / b;
+    }
+
+    /**
+     * @dev Subtracts two int256 variables and fails on overflow.
+     */
+    function sub(int256 a, int256 b)
+        internal
+        pure
+        returns (int256)
+    {
+        int256 c = a - b;
+        require((b >= 0 && c <= a) || (b < 0 && c > a));
+        return c;
+    }
+
+    /**
+     * @dev Adds two int256 variables and fails on overflow.
+     */
+    function add(int256 a, int256 b)
+        internal
+        pure
+        returns (int256)
+    {
+        int256 c = a + b;
+        require((b >= 0 && c >= a) || (b < 0 && c < a));
+        return c;
+    }
+
+    /**
+     * @dev Converts to absolute value, and fails on overflow.
+     */
+    function abs(int256 a)
+        internal
+        pure
+        returns (int256)
+    {
+        require(a != MIN_INT256);
+        return a < 0 ? -a : a;
+    }
+}
+
 // File: @openzeppelin/contracts/GSN/Context.sol
 
 
@@ -975,9 +1073,6 @@ contract Operator is Context, Ownable {
 // File: contracts/utils/Epoch.sol
 
 pragma solidity ^0.6.0;
-
-
-
 
 contract Epoch is Operator {
     using SafeMath for uint256;
@@ -1181,17 +1276,19 @@ pragma solidity ^0.6.0;
 
 
 /**
- * @title Basis Cash Treasury contract
+ * @title Treasury contract
  * @notice Monetary policy logic to adjust supplies of basis cash assets
  * @author Summer Smith & Rick Sanchez
  */
 contract Treasury is ContractGuard, Epoch, Orchestrator {
-    using FixedPoint for *;
+    // using FixedPoint for *;
     using SafeERC20 for IERC20;
-    using Address for address;
+    // using Address for address;
     using SafeMath for uint256;
-    using Safe112 for uint112;
-
+    // using Safe112 for uint112;
+    using UInt256Lib for uint256;
+    using SafeMathInt for int256;
+    
     /* ========== STATE VARIABLES ========== */
 
     // ========== FLAGS
@@ -1201,44 +1298,31 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
     // ========== CORE
     address public fund;
     address public cash;
-    address public share;
     address public boardroom;
 
-    address public bondOracle;
     address public seigniorageOracle;
     uint256 public timePeriod = 172800; // 48 hour
 
     // ========== PARAMS
-    uint256 public cashPriceOne;
-    uint256 public cashPriceCeiling;
-    uint256 public cashPriceBurn;
-    uint256 public bondDepletionFloor;
+    uint256 public cashPriceOne =  10**18;
 
-    uint256 public fundAllocationRate = 9;
-    uint256 public diveflationAmount = 0;
+    uint256 public fundAllocationRate = 10;
+    uint256 public IssuanceRatio = 60;
+    int256 public inflationDeflationAmount = 0;
     /* ========== CONSTRUCTOR ========== */
 
     constructor(
         address _cash,
-        address _share,
-        address _bondOracle,
         address _seigniorageOracle,
         address _boardroom,
         address _fund,
         uint256 _startTime
-    ) public Epoch(24 hours, _startTime, 0) {
+    ) public Epoch(10 minutes, _startTime, 0) {
         cash = _cash;
-        share = _share;
-        bondOracle = _bondOracle;
         seigniorageOracle = _seigniorageOracle;
 
         boardroom = _boardroom;
         fund = _fund;
-
-        cashPriceOne = 10**18;
-        cashPriceCeiling = uint256(105).mul(cashPriceOne).div(10**2);
-        cashPriceBurn = uint256(95).mul(cashPriceOne).div(10**2);
-        bondDepletionFloor = uint256(1000).mul(cashPriceOne);
     }
 
     /* =================== Modifier =================== */
@@ -1252,7 +1336,6 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
     modifier checkOperator {
         require(
             IBasisAsset(cash).operator() == address(this) &&
-                IBasisAsset(share).operator() == address(this) &&
                 Operator(boardroom).operator() == address(this),
             'Treasury: need more permission'
         );
@@ -1262,10 +1345,6 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
 
     /* ========== VIEW FUNCTIONS ========== */
     // oracle
-    function getBondOraclePrice() public view returns (uint256) {
-        return _getCashPrice(bondOracle);
-    }
-
     function getSeigniorageOraclePrice() public view returns (uint256) {
         return _getCashPrice(seigniorageOracle);
     }
@@ -1287,12 +1366,7 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
         Operator(cash).transferOperator(target);
         Operator(cash).transferOwnership(target);
         IERC20(cash).transfer(target, IERC20(cash).balanceOf(address(this)));
-
-        // share
-        Operator(share).transferOperator(target);
-        Operator(share).transferOwnership(target);
-        IERC20(share).transfer(target, IERC20(share).balanceOf(address(this)));
-
+        
         migrated = true;
         emit Migration(target);
     }
@@ -1305,6 +1379,14 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
     function setFundAllocationRate(uint256 rate) public onlyOperator {
         fundAllocationRate = rate;
         emit ContributionPoolRateChanged(msg.sender, rate);
+    }
+    
+    function setIssuanceRatio(uint256 ratio) public onlyOperator {
+        IssuanceRatio = ratio;
+    }
+    
+    function setTimePeriod(uint256 time) public onlyOperator {
+        timePeriod = time;
     }
 
     /* ========== MUTABLE FUNCTIONS ========== */
@@ -1322,29 +1404,29 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
         checkEpoch
         checkOperator
     {
-        // --BIP 1 Oracle
+        // --BIP 1 Supply
         _updateCashPrice();
         uint256 cashPrice = _getCashPrice(seigniorageOracle);
-        uint256 totalFlow = IERC20(cash).totalSupply();
-        if (cashPrice <= cashPriceCeiling) { 
-            if(cashPrice < cashPriceBurn) { 
-                diveflationAmount = totalFlow.mul(5).div(100);
-                IBasisAsset(cash).rebase(epoch,int256(-diveflationAmount));
+        if (cashPrice == cashPriceOne) {
+            inflationDeflationAmount = 0;
+            return;
+        } 
+        
+        // circulating supply
+        inflationDeflationAmount = computeSupplyDelta(cashPrice,cashPriceOne);
+        
+        // Price is less than 1 deflation
+        if (cashPrice < cashPriceOne) {
+                IBasisAsset(cash).rebase(epoch,inflationDeflationAmount);
                 externalCall();
                 IBoardroom(boardroom).burnReward();
-            }
             return; // just advance epoch instead revert
         }
-        // --BIP 2 Supply
-        diveflationAmount = 0;
+        
         IBoardroom(boardroom).setTimeLock(block.timestamp.add(timePeriod));
-
-        // circulating supply
-        uint256 cashSupply = totalFlow.sub(IERC20(cash).balanceOf(address(this)));
-        uint256 percentage = cashPrice.sub(cashPriceOne);
-        uint256 seigniorage = (cashSupply.mul(percentage).div(1e18)).mul(60).div(100);
-
-        // --BIP 3 Fund
+        uint256 seigniorage = uint256(inflationDeflationAmount).mul(IssuanceRatio).div(100);
+        
+        // --BIP 2 Fund
         uint256 fundReserve = seigniorage.mul(fundAllocationRate).div(100);
         if (fundReserve > 0) {
             IERC20(cash).safeApprove(fund, fundReserve);
@@ -1357,7 +1439,7 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
         }
         seigniorage = seigniorage.sub(fundReserve);
 
-        // --BIP 4 Boardroom
+        // --BIP 3 Boardroom
         if (seigniorage > 0) {
             IERC20(cash).safeApprove(boardroom, seigniorage);
             IBoardroom(boardroom).allocateSeigniorage(seigniorage);
@@ -1365,6 +1447,21 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
         }
     }
     
+    /**
+     * @return Computes the total supply adjustment in response to the exchange rate
+     *         and the targetRate.
+     */
+    function computeSupplyDelta(uint256 rate, uint256 targetRate)
+        private
+        view
+        returns (int256)
+    {
+        int256 targetRateSigned = targetRate.toInt256Safe();
+        int256 supply = (IERC20(cash).totalSupply().sub(IERC20(cash).balanceOf(address(this)))).toInt256Safe();
+        return supply.
+                    mul(rate.toInt256Safe().sub(targetRateSigned)).
+                    div(targetRateSigned);
+    }
     
     // GOV  
     event Initialized(address indexed executor, uint256 at);

@@ -951,7 +951,7 @@ contract Boardroom is ShareWrapper, ContractGuard, Operator {
         }
     }
 
-    function setTimeLock(uint256 time) external onlyOneBlock onlyOperator {
+    function setTimeLock(uint256 time) external onlyOperator {
         timeLock = time;
     }
 
