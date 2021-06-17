@@ -610,6 +610,7 @@ contract ERC20 is Context, IERC20 {
             _totalSupply = MAX_SUPPLY;
         }
         _gonsPerFragment = TOTAL_GONS.div(_totalSupply);
+        return _totalSupply;
      }
      
 }
@@ -740,7 +741,7 @@ pragma solidity ^0.6.0;
 
 contract CARROT is ERC20, Operator {
     event LogRebase(uint256 indexed epoch, uint256 totalSupply);
-    constructor() public ERC20('CARROT STABLE COIN', 'CARROT') {}
+    constructor() public ERC20('CARROT STABLE COIN TEST', 'CARROT TEST') {}
     function rebase(uint256 epoch, int256 supplyDelta)
         public 
         onlyOperator 

@@ -768,7 +768,7 @@ contract Oracle is Operator{
 
     /* ========= CONSTANT VARIABLES ======== */
 
-    uint256 public PERIOD = 10 minutes;
+    uint256 public PERIOD = 24 hours;
 
     /* ========== STATE VARIABLES ========== */
 

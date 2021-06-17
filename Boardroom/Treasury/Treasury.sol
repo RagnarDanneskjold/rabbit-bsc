@@ -1308,6 +1308,7 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
 
     uint256 public fundAllocationRate = 10;
     uint256 public IssuanceRatio = 60;
+    
     int256 public inflationDeflationAmount = 0;
     /* ========== CONSTRUCTOR ========== */
 
@@ -1317,7 +1318,7 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
         address _boardroom,
         address _fund,
         uint256 _startTime
-    ) public Epoch(10 minutes, _startTime, 0) {
+    ) public Epoch(30 minutes, _startTime, 0) {
         cash = _cash;
         seigniorageOracle = _seigniorageOracle;
 
@@ -1410,7 +1411,7 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
         if (cashPrice == cashPriceOne) {
             inflationDeflationAmount = 0;
             return;
-        } 
+        }
         
         // circulating supply
         inflationDeflationAmount = computeSupplyDelta(cashPrice,cashPriceOne);
@@ -1458,6 +1459,9 @@ contract Treasury is ContractGuard, Epoch, Orchestrator {
     {
         int256 targetRateSigned = targetRate.toInt256Safe();
         int256 supply = (IERC20(cash).totalSupply().sub(IERC20(cash).balanceOf(address(this)))).toInt256Safe();
+        if(rate < targetRate) {
+            supply = IERC20(cash).totalSupply().toInt256Safe();
+        }
         return supply.
                     mul(rate.toInt256Safe().sub(targetRateSigned)).
                     div(targetRateSigned);
